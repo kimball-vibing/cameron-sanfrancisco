@@ -639,6 +639,35 @@ function screenDef() {
         tail: `</div>`, items,
       };
     }
+    case "vtest": {
+      // In-case test panel for the Vault detective: jump anywhere on the trail, swap the thief, set the warrant, change the clock.
+      const ids = SUSPECTS.map(x => x.id), back = () => { S.screen = S.testFrom || "city"; };
+      const jump = k => () => { S.cameFrom = S.route[k - 1] || null; S.city = S.route[k]; S.finalVisits = 0; S.witness = null; S.screen = "city"; flash = `Jumped to stop ${k + 1}.`; };
+      const swap = d => () => { const keep = { route: S.route, city: S.city, cameFrom: S.cameFrom, time: S.time, notes: S.notes, visited: S.visited, places: S.places, bedtimes: S.bedtimes, testFrom: S.testFrom };
+        newCase(ids[(ids.indexOf(S.thief) + d + ids.length) % ids.length], keep.route); Object.assign(S, keep); S.screen = "vtest"; return "stay"; };
+      const wrongId = () => pick(SUSPECTS.filter(x => x.id !== S.thief && x.sex === thief().sex)).id;
+      const clock = h => () => { S.time = Math.max(START_T, Math.min(DEADLINE_T - 1, S.time + h)); return "stay"; };
+      const items = S.route.map((id, k) => ({ label: `${k + 1}. ${CITIES[id].name}${k === S.route.length - 1 ? " (end)" : ""}`, on: id === S.city, go: jump(k) }))
+        .concat([{ label: "◂", go: swap(-1) }, { label: `Thief: ${thief().name}`, on: true, go: swap(1) }, { label: "▸", go: swap(1) }])
+        .concat([{ label: "Right warrant", on: S.warrant === S.thief, go: () => { S.warrant = S.thief; return "stay"; } },
+          { label: "Wrong warrant", on: !!S.warrant && S.warrant !== S.thief, go: () => { S.warrant = wrongId(); return "stay"; } },
+          { label: "No warrant", on: !S.warrant, go: () => { S.warrant = null; return "stay"; } }])
+        .concat([{ label: "−1 hour", go: clock(-1) }, { label: "+1 hour", go: clock(1) }, { label: "+1 day", go: clock(24) }, { label: "Mon 9 AM", go: () => { S.time = START_T; return "stay"; } }])
+        .concat([{ label: "Skip to chase", go: () => { S.cameFrom = S.route[S.route.length - 2]; S.city = S.route[S.route.length - 1]; S.finalVisits = 2; S.screen = "chase"; } },
+          { label: "Back to the game", go: back }]);
+      const btn = (it, i) => `<button type="button" class="key vkey ${i === sel ? "sel" : ""} ${it.on ? "on" : ""}" data-i="${i}">${esc(it.label)}</button>`;
+      const row = (a, b, cols) => `<div class="vgrid" style="grid-template-columns:${cols}">${items.slice(a, b).map((it, i) => btn(it, i + a)).join("")}</div>`;
+      const n = S.route.length;
+      return {
+        noMenu: true, back,
+        html: `<div class="view vault"><div class="place" style="font-size:18px">Test controls</div>
+          <div class="sub">In ${CITIES[S.city].name}, stop ${S.route.indexOf(S.city) + 1} of ${n} · ${fmtTime(S.time)}${S.warrant ? ` · warrant: ${esc(SUSPECTS.find(x => x.id === S.warrant).name)}` : ""}</div>
+          <div class="sub">Jump to a stop on the trail</div>${row(0, n, "repeat(3,1fr)")}
+          ${row(n, n + 3, "48px 1fr 48px")}<div class="sub">Warrant</div>${row(n + 3, n + 6, "repeat(3,1fr)")}
+          <div class="sub">Clock</div>${row(n + 6, n + 10, "repeat(4,1fr)")}${row(n + 10, items.length, "repeat(2,1fr)")}`,
+        tail: `</div>`, items,
+      };
+    }
     case "hof": return {
       back: () => { ui = P ? null : "login"; },
       html: `<div class="view"><div class="place">Hall of Fame</div><div class="sub">Detectives who caught Cameron SanFrancisco.</div>
@@ -958,7 +987,7 @@ function render() {
   const msg = flash ? `<div class="sub ok">${flash}</div>` : ""; flash = "";
   document.getElementById("stage").innerHTML = bar +
     `<div class="body ${cls}${d.black ? " black" : ""}">${left}${d.html}${d.noMenu ? "" : menuHTML(d.items)}${msg}${d.tail || ""}</div>` +
-    `<div class="foot"><span>${S && S.screen === "fly" ? "↑↓ pick a city · Enter fly" : S && S.screen === "dossiers" ? "←→ flip through the files" : S && S.screen === "witness" ? "Enter continue · E spot a disguise" : "↑↓ choose · Enter select"}${d.back ? " · Esc back" : ""}</span><span class="foot-r">${canHome() ? `<button type="button" class="back" id="homebtn">⌂ Home (H)</button>` : ""}<button type="button" class="back" id="mutebtn">${P && P.mute ? "Sound off" : "Sound on"} (M)</button>${d.back ? `<button type="button" class="back" id="backbtn">◂ Back</button>` : ""}</span></div>`;
+    `<div class="foot"><span>${S && S.screen === "fly" ? "↑↓ pick a city · Enter fly" : S && S.screen === "dossiers" ? "←→ flip through the files" : S && S.screen === "witness" ? "Enter continue · E spot a disguise" : "↑↓ choose · Enter select"}${d.back ? " · Esc back" : ""}</span><span class="foot-r">${canTest() ? `<button type="button" class="back" id="testbtn">Test (T)</button>` : ""}${canHome() ? `<button type="button" class="back" id="homebtn">⌂ Home (H)</button>` : ""}<button type="button" class="back" id="mutebtn">${P && P.mute ? "Sound off" : "Sound on"} (M)</button>${d.back ? `<button type="button" class="back" id="backbtn">◂ Back</button>` : ""}</span></div>`;
   if (d.art === "city") drawLandmark(document.getElementById("art"), S.city);
   if (d.art === "witness" && S.screen === "witness") { const fc = document.getElementById("face");
     const wp = witnessPerson(S.witness.seed, S.city, S.witness.ptype);
@@ -986,6 +1015,9 @@ function witnessPerson(seed, cityId, job) {
 }
 // Bella's eyes dart left, right, left, back, then pause, over and over.
 const SHIFTY = [-1, -1, -1, 1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+/* Vault detective only: open the test panel from any point in a case. */
+const canTest = () => P && P.dev && S && S.thief && S.route && !S.result && !S.exam && S.screen !== "vtest";
+function openTest() { S.testFrom = ["chase", "walk", "danger", "unmask", "hint", "flying"].includes(S.screen) ? "city" : S.screen; S.screen = "vtest"; sel = 0; render(); }
 function talkingFace(cv, person, shifty) {
   const t0 = performance.now(), reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   drawFace(cv, person);
@@ -1060,6 +1092,7 @@ document.getElementById("stage").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "backbtn") return goBack();
   if (b.id === "homebtn") { goHome(); render(); return; }
+  if (b.id === "testbtn") { openTest(); return; }
   if (b.id === "mutebtn" && P) { SFX.muted = P.mute = !P.mute; saveProfile(); render(); return; }
   if (b.dataset.i != null) { if (S && S.screen === "dossiers") { sel = +b.dataset.i; render(); } else choose(+b.dataset.i); }
 });
@@ -1080,6 +1113,7 @@ document.addEventListener("keydown", e => {
   if (scr === "walk" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); finishWalk(); return; }
   if (scr === "danger" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); endDanger(); return; }
   if ((e.key === "h" || e.key === "H") && canHome()) { goHome(); render(); return; }
+  if ((e.key === "t" || e.key === "T") && canTest()) { openTest(); return; }
   if ((e.key === "e" || e.key === "E") && S && S.screen === "witness") { SFX.click(); accuseWitness(); sel = 0; render(); return; }
   if ((e.key === "m" || e.key === "M") && P) { SFX.muted = P.mute = !P.mute; saveProfile(); render(); return; }
   if (notes && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); notes.scrollTop += e.key === "ArrowDown" ? 60 : -60; return; }
