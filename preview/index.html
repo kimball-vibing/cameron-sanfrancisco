@@ -353,14 +353,15 @@ let PROFILES = store.get("csf-profiles") || {};
 let P = null, ui = "login", nameBuf = "";
 let HOF = store.get("csf-hof") || [];
 function saveProfile() { if (P) { PROFILES[P.name.toLowerCase()] = P; store.set("csf-profiles", PROFILES); } }
-/* Secret test detective: sign in as "entervault". Starts as an Ace with everyone in jail, ready for Cameron; never enters the Hall of Fame. */
+/* Secret test detective: sign in as "entervault". Starts as an Ace with everyone free; never enters the Hall of Fame. */
 const VAULT = "entervault";
 function signIn(name) {
   let key = name.trim().toLowerCase();
   if (key.replace(/\s+/g, "") === VAULT) key = VAULT;
   P = PROFILES[key] || (PROFILES[key] = key === VAULT
-    ? { name: "Vault", dev: true, solved: RANKS[RANKS.length - 1].at, rank: RANKS.length - 1, jailed: GANG_IDS.slice(), created: Date.now() }
+    ? { name: "Vault", dev: true, solved: RANKS[RANKS.length - 1].at, rank: RANKS.length - 1, jailed: [], freeStart: true, created: Date.now() }
     : { name: name.trim(), solved: 0, rank: 0, created: Date.now() });
+  if (P.dev && !P.freeStart) { P.jailed = []; P.freeStart = true; } // older Vault detectives started with everyone in jail
   P.last = Date.now(); saveProfile(); SFX.muted = !!P.mute; ui = null; S = null;
 }
 let sel = 0;       // highlighted menu row
