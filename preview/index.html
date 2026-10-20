@@ -372,7 +372,7 @@ const GANG_IDS = SUSPECTS.filter(s => s.id !== "cameron").map(s => s.id);
 const jailed = () => (P && P.jailed) || [];
 const freeGang = () => GANG_IDS.filter(id => !jailed().includes(id));
 const roster = () => SUSPECTS.filter(s => !jailed().includes(s.id));
-const bellaStays = () => freeGang().length === 1 && rankIdx() === RANKS.length - 1;
+const bellaStays = () => freeGang().join() === "bella" && rankIdx() === RANKS.length - 1;
 const rankOf = () => RANKS[rankIdx()];
 const examDue = () => rankIdx() < RANKS.length - 1 && P.solved >= RANKS[rankIdx() + 1].at;
 const thief = () => SUSPECTS.find(s => s.id === S.thief);
@@ -393,9 +393,9 @@ function pickClues(route, ri) {
 
 /* Once you're an Ace Detective and the whole gang is in jail, the next case is Cameron SanFrancisco himself. */
 const bossDue = () => rankIdx() === RANKS.length - 1 && freeGang().length === 0 && !P.caughtCameron;
-function newCase(force) {
+function newCase(force, trail) {
   const ri = rankIdx(), rank = RANKS[ri], boss = force ? force === "cameron" : bossDue();
-  const route = shuffle(CITY_IDS).slice(0, boss ? 9 : rank.cities);
+  const route = trail ? trail.slice() : shuffle(CITY_IDS).slice(0, boss ? 9 : rank.cities);
   const free = freeGang(), tid = force || (boss ? "cameron" : pick(free.length ? free : GANG_IDS)), t = SUSPECTS.find(x => x.id === tid);
   // Pick trait clues until they (plus the sex) point to exactly one suspect.
   let pool = SUSPECTS.filter(s => s.sex === t.sex);
@@ -437,7 +437,7 @@ function end(why) {
   if (why === "win") {
     P.solved++; S.examDue = !S.boss && examDue();
     if (!S.boss && (S.thief !== "bella" || bellaStays())) { P.jailed = [...new Set([...jailed(), S.thief])]; S.jailed = true; }
-    if (S.thief === "bella" && !S.jailed) S.bellaEscapes = true;
+    if (S.thief === "bella" && !S.jailed) { S.bellaEscapes = true; P.jailed = jailed().filter(x => x !== "bella"); }
     if (S.boss && !P.dev) { P.caughtCameron = (P.caughtCameron || 0) + 1; HOF.push({ name: P.name, date: new Date().toISOString().slice(0, 10), solved: P.solved, rank: rankOf().name }); store.set("csf-hof", HOF); }
   }
   delete P.save; saveProfile();
@@ -585,21 +585,12 @@ function screenDef() {
       // Test controls for the "entervault" detective: set the rank, and put anyone in or out of jail.
       const setRank = r => { P.rank = r; P.solved = RANKS[r].at; P.caughtCameron = 0; saveProfile(); return "stay"; };
       const toggle = id => { P.jailed = jailed().includes(id) ? jailed().filter(x => x !== id) : [...jailed(), id]; saveProfile(); return "stay"; };
-      // Pick who to chase, then play that case or jump straight to the final chase.
-      const who = P.vaultThief || "", whoName = who ? SUSPECTS.find(x => x.id === who).name : "Random";
-      const ids = ["", ...SUSPECTS.map(x => x.id)];
-      const skip = ok => { newCase(who || undefined); S.city = S.route[S.route.length - 1]; S.finalVisits = 2;
-        S.warrant = ok ? S.thief : pick(SUSPECTS.filter(x => x.id !== S.thief && x.sex === thief().sex)).id; S.screen = "chase"; ui = null; };
-      const step = d => () => { P.vaultThief = ids[(ids.indexOf(who) + d + ids.length) % ids.length]; saveProfile(); return "stay"; };
-      const chase = [{ label: "◂ Previous", go: step(-1) }, { label: `Chase: ${whoName}`, on: !!who, go: step(1) }, { label: "Next ▸", go: step(1) },
-        { label: "Play this case", go: () => { newCase(who || undefined); ui = null; } },
-        { label: "Skip to chase + warrant", go: () => skip(true) },
-        { label: "Skip to chase, wrong warrant", go: () => skip(false) }];
       const items = RANKS.map((r, i) => ({ label: r.name, on: rankIdx() === i, go: () => setRank(i) }))
         .concat(SUSPECTS.filter(x => x.id !== "cameron").map(x => ({ label: x.name, on: jailed().includes(x.id), go: () => toggle(x.id) })))
         .concat([{ label: "Jail everyone", go: () => { P.jailed = GANG_IDS.slice(); saveProfile(); return "stay"; } },
           { label: "Free everyone", go: () => { P.jailed = []; saveProfile(); return "stay"; } },
-          { label: "Done", go: () => { ui = null; } }]).concat(chase);
+          { label: "Build a case ▸", go: () => { ui = "vcase"; } },
+          { label: "Done", go: () => { ui = null; } }]);
       const btn = (it, i) => `<button type="button" class="key vkey ${i === sel ? "sel" : ""} ${it.on ? "on" : ""}" data-i="${i}">${it.on ? "✓ " : ""}${esc(it.label)}</button>`;
       const nR = RANKS.length, nG = GANG_IDS.length;
       const row = (a, b, cols) => `<div class="vgrid" style="grid-template-columns:repeat(${cols},1fr)">${items.slice(a, b).map((it, i) => btn(it, i + a)).join("")}</div>`;
@@ -607,8 +598,41 @@ function screenDef() {
         noMenu: true, back: () => { ui = null; },
         html: `<div class="view vault"><div class="place" style="font-size:18px">Vault controls</div>
           <div class="sub">Rank (sets cases solved to match)</div>${row(0, nR, 5)}
-          <div class="sub">In jail (✓) · ${freeGang().length} free. ${bossDue() ? "Next case: Cameron!" : ""}</div>${row(nR, nR + nG, 4)}${row(nR + nG, nR + nG + 3, 3)}
-          <div class="sub">Test a chase</div>${row(nR + nG + 3, nR + nG + 6, 3)}${row(nR + nG + 6, items.length, 3)}`,
+          <div class="sub">In jail (✓) · ${freeGang().length} free. ${bossDue() ? "Next case: Cameron!" : ""}</div>${row(nR, nR + nG, 4)}${row(nR + nG, items.length, 4)}`,
+        tail: `</div>`, items,
+      };
+    }
+    case "vcase": {
+      // Vault case builder: choose the thief, the trail of cities, and which stop to start at.
+      const V = P.vault ||= { thief: "", trail: [], start: 0 };
+      const ids = ["", ...SUSPECTS.map(x => x.id)], whoName = V.thief ? SUSPECTS.find(x => x.id === V.thief).name : "Random";
+      const trail = V.trail.length >= 2 ? V.trail : null, stops = trail ? trail.length : 0;
+      V.start = Math.min(V.start, Math.max(0, stops - 1));
+      const keep = () => { saveProfile(); return "stay"; };
+      const who = d => () => { V.thief = ids[(ids.indexOf(V.thief) + d + ids.length) % ids.length]; return keep(); };
+      const at = d => () => { if (stops) V.start = (V.start + d + stops) % stops; return keep(); };
+      const city = id => () => { V.trail = V.trail.includes(id) ? V.trail.filter(x => x !== id) : [...V.trail, id]; return keep(); };
+      const begin = () => { newCase(V.thief || undefined, trail); return S; };
+      const play = () => { begin(); const k = trail ? V.start : 0;
+        if (k > 0) { S.cameFrom = S.route[k - 1]; S.city = S.route[k]; S.screen = "city"; } ui = null; };
+      const skip = ok => { begin(); S.cameFrom = S.route[S.route.length - 2]; S.city = S.route[S.route.length - 1]; S.finalVisits = 2;
+        S.warrant = ok ? S.thief : pick(SUSPECTS.filter(x => x.id !== S.thief && x.sex === thief().sex)).id; S.screen = "chase"; ui = null; };
+      const items = [{ label: "◂", go: who(-1) }, { label: `Thief: ${whoName}`, on: !!V.thief, go: who(1) }, { label: "▸", go: who(1) }]
+        .concat(CITY_IDS.map(id => ({ label: `${V.trail.includes(id) ? V.trail.indexOf(id) + 1 + ". " : ""}${CITIES[id].name}`, on: V.trail.includes(id), go: city(id) })))
+        .concat([{ label: "Random trail", go: () => { V.trail = shuffle(CITY_IDS).slice(0, RANKS[rankIdx()].cities); V.start = 0; return keep(); } },
+          { label: "Clear trail", go: () => { V.trail = []; V.start = 0; return keep(); } },
+          { label: "◂ Back to vault", go: () => { ui = "vault"; } }])
+        .concat([{ label: "◂", go: at(-1) }, { label: trail ? `Start at stop ${V.start + 1}: ${CITIES[trail[V.start]].name}` : "Start at the beginning", go: at(1) }, { label: "▸", go: at(1) }])
+        .concat([{ label: "Play from there", go: play }, { label: "Skip to chase + warrant", go: () => skip(true) }, { label: "Skip, wrong warrant", go: () => skip(false) }]);
+      const btn = (it, i) => `<button type="button" class="key vkey ${i === sel ? "sel" : ""} ${it.on ? "on" : ""}" data-i="${i}">${it.on && !/^\d/.test(it.label) ? "✓ " : ""}${esc(it.label)}</button>`;
+      const row = (a, b, cols) => `<div class="vgrid" style="grid-template-columns:${cols}">${items.slice(a, b).map((it, i) => btn(it, i + a)).join("")}</div>`;
+      const nC = CITY_IDS.length, c0 = 3, u0 = c0 + nC, s0 = u0 + 3, p0 = s0 + 3;
+      return {
+        noMenu: true, back: () => { ui = "vault"; },
+        html: `<div class="view vault"><div class="place" style="font-size:18px">Build a case</div>
+          ${row(0, c0, "48px 1fr 48px")}
+          <div class="sub">Trail: ${trail ? trail.map(id => CITIES[id].name).join(" → ") : V.trail.length ? `${CITIES[V.trail[0]].name} (pick at least 2 cities)` : `tap cities in order, or leave empty for a random ${RANKS[rankIdx()].cities}-city trail`}</div>
+          ${row(c0, u0, "repeat(4,1fr)")}${row(u0, s0, "repeat(3,1fr)")}${row(s0, p0, "48px 1fr 48px")}${row(p0, items.length, "repeat(3,1fr)")}`,
         tail: `</div>`, items,
       };
     }
