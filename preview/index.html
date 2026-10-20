@@ -180,6 +180,169 @@ const CITIES = {
   bangkok: { name: "Bangkok", lat: 13.8, lon: 100.5, sky: "#f4b0a0", ground: "#5a8a6a", item: "a gold Buddha leaf from the Grand Palace", },
 };
 const CITY_IDS = Object.keys(CITIES);
+/* Things a thief can steal in each city: real treasures and a few silly ones. One is picked per case. */
+const LOOT = {
+  "paris": [
+  "the Mona Lisa's smile, right off the painting",
+  "the top three steps of the Eiffel Tower",
+  "every baguette in the city",
+  "the Arc de Triomphe's echo",
+  "a golden crown from the Louvre",
+  "the bells of Notre-Dame",
+  "the bubbles from the Champagne fountain",
+  "the mimes' invisible boxes"
+  ],
+  "tokyo": [
+  "Mount Fuji's snowcap",
+  "a jeweled samurai helmet from the national museum",
+  "the fastest bullet train's whistle",
+  "the neon glow of Shibuya Crossing",
+  "every cherry blossom in Ueno Park",
+  "the sumo champion's belt",
+  "the sushi chef's golden knife",
+  "the Tokyo Tower's red paint"
+  ],
+  "cairo": [
+  "the Sphinx's nose (again!)",
+  "a golden scarab from the Egyptian Museum",
+  "the tip of the Great Pyramid",
+  "King Tut's sandals",
+  "the Nile's sunset",
+  "a mummy's best bandages",
+  "every grain of sand in a royal sandbox",
+  "the camels' humps"
+  ],
+  "rio": [
+  "the feathered crown of the Carnival queen",
+  "Christ the Redeemer's open-arm hug",
+  "the sugar from Sugarloaf Mountain",
+  "the samba beat from the whole Carnival parade",
+  "Copacabana's wavy sidewalk",
+  "the soccer World Cup trophy",
+  "every parrot's squawk in the rainforest",
+  "the sunshine off Ipanema Beach"
+  ],
+  "mumbai": [
+  "a sapphire from the Prince of Wales Museum",
+  "the Gateway of India's front door",
+  "every song from a Bollywood movie",
+  "the spice from the city's spiciest curry",
+  "the lunchboxes of the dabbawalas",
+  "the sparkle from the Queen's Necklace",
+  "a golden elephant statue",
+  "the cricket team's lucky bat"
+  ],
+  "sydney": [
+  "the opal baton of the harbour orchestra",
+  "the sails off the Sydney Opera House",
+  "the hop from every kangaroo in the zoo",
+  "the Harbour Bridge's fireworks",
+  "a koala's nap",
+  "the waves from Bondi Beach",
+  "a golden boomerang",
+  "the surf lifesavers' whistles"
+  ],
+  "reykjavik": [
+  "an ancient Viking drinking horn",
+  "the Northern Lights",
+  "the hot water from the Blue Lagoon",
+  "the sheep's woolly sweaters",
+  "the Hallgrímskirkja's tallest pipe",
+  "a geyser's whoosh",
+  "the puffins' orange beaks",
+  "a Viking king's golden helmet"
+  ],
+  "mexico": [
+  "a jade mask from the Museum of Anthropology",
+  "the top of the Pyramid of the Sun",
+  "every piñata in town",
+  "the mariachi band's trumpets",
+  "Frida Kahlo's favorite paintbrush",
+  "the Aztec Sun Stone",
+  "the gold from Moctezuma's crown",
+  "the hot from the hottest salsa"
+  ],
+  "istanbul": [
+  "an emerald dagger from Topkapı Palace",
+  "the domes of the Blue Mosque",
+  "the Grand Bazaar's flying carpets",
+  "every Turkish delight in the city",
+  "the Bosphorus Bridge's lights",
+  "a sultan's diamond turban",
+  "the ferry horns",
+  "the whirl from the whirling dervishes"
+  ],
+  "nairobi": [
+  "a carved lion from the national gallery",
+  "the giraffes' spots",
+  "the roar from every lion in the national park",
+  "a Maasai warrior's beaded collar",
+  "the snow off Mount Kenya",
+  "the stripes off the zebras",
+  "a golden elephant tusk carving",
+  "the marathon runners' sneakers"
+  ],
+  "london": [
+  "a ruby from the Crown Jewels display",
+  "Big Ben's bong",
+  "the Queen's corgis' collars",
+  "the red from every double-decker bus",
+  "the London Eye's spin",
+  "the Beefeaters' fancy hats",
+  "the fog from the Thames",
+  "Sherlock Holmes's magnifying glass"
+  ],
+  "newyork": [
+  "the Rockettes' high kicks",
+  "the Statue of Liberty's torch",
+  "the hole from every bagel in Brooklyn",
+  "a diamond tiara from a Fifth Avenue museum",
+  "the Times Square ball",
+  "the Empire State Building's top floor",
+  "the honk from every yellow taxi",
+  "the Broadway stage lights"
+  ],
+  "beijing": [
+  "a bronze dragon from the Forbidden City",
+  "a whole brick from the Great Wall",
+  "the pandas' black eye patches",
+  "the Emperor's jade throne",
+  "the dragon dance's dragon",
+  "the Temple of Heaven's blue roof",
+  "the crispy skin from every Peking duck",
+  "a terracotta warrior's sword"
+  ],
+  "buenosaires": [
+  "a silver bandoneón from the tango museum",
+  "the tango's fancy footwork",
+  "the colors of La Boca's houses",
+  "the gauchos' silver spurs",
+  "the obelisk's pointy tip",
+  "the soccer star's golden boot",
+  "the Pink House's pink",
+  "every alfajor cookie in town"
+  ],
+  "rome": [
+  "a golden laurel wreath from the Capitoline Museums",
+  "the lean from the Leaning Tower (it's in Pisa, but still!)",
+  "every coin from the Trevi Fountain",
+  "the Colosseum's missing half",
+  "the gladiators' shiny helmets",
+  "the noodles from every plate of spaghetti",
+  "Michelangelo's paintbrush",
+  "the Pope's golden key"
+  ],
+  "bangkok": [
+  "a gold Buddha leaf from the Grand Palace",
+  "the Emerald Buddha's emerald",
+  "the floating market's boats",
+  "the tuk-tuks' beep beeps",
+  "the elephants' fancy parade blankets",
+  "the spicy from the spiciest Thai soup",
+  "the King's golden barge",
+  "the sparkle off Wat Arun's tiles"
+  ]
+  };
 /* Places each city really has: no palace in Reykjavik, no harbor in Mexico City. Three are picked each time you land. */
 const CITY_PLACES = {
   paris: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station"],
@@ -416,7 +579,7 @@ function newCase(force, trail) {
     traitAt[ci].push({ k, place: shuffle([0, 1, 2].filter(p => !used.includes(p)))[0] });
   });
   S = {
-    screen: "brief", boss, thief: t.id, route, city: route[0], cameFrom: null, rank: rank.name, names: ri < 2,
+    screen: "brief", boss, thief: t.id, route, item: pick(LOOT[route[0]] || [CITIES[route[0]].item]), city: route[0], cameFrom: null, rank: rank.name, names: ri < 2,
     time: START_T, bedtimes: Array.from({ length: 11 }, () => rint(21, 24)),
     traitAt, clues: pickClues(route, ri),
     flyOptions: {}, visited: {}, places: Object.fromEntries(CITY_IDS.map(c => [c, rollPlaces(c)])),
@@ -687,8 +850,8 @@ function screenDef() {
     };
     case "brief": return {
       html: `<div class="view"><span class="stampbox">CASE FILE · ${esc(S.rank.toUpperCase())}</span><div class="paper"><span class="who">Chief of ${AGENCY} (${AGENCY_LONG})</span>
-        ${S.boss ? `Detective, this is the big one. Cameron SanFrancisco himself stole ${esc(c.item)} in ${c.name}. Catch him and you'll join the Hall of Fame.`
-          : `Detective, ${esc(c.item)} was stolen in ${c.name} this morning. A ${GANG} agent did it, working for Cameron SanFrancisco.`}
+        ${S.boss ? `Detective, this is the big one. Cameron SanFrancisco himself stole ${esc(S.item || c.item)} in ${c.name}. Catch him and you'll join the Hall of Fame.`
+          : `Detective, this morning in ${c.name}, a ${GANG} agent stole ${esc(S.item || c.item)}! They're working for Cameron SanFrancisco.`}
         Track the thief, get a warrant, and make the arrest by <b>next Wednesday at 5 PM</b>.</div>`,
       tail: `</div>`,
       items: [{ label: `Go to ${c.name}`, go: () => { S.screen = "city"; } }],
@@ -843,9 +1006,9 @@ function screenDef() {
       noMenu: true, html: `<canvas class="street" id="street" width="384" height="188"></canvas>`, items: [{ label: "", go: finishChase }], onShow: startChase,
     };
     case "end": {
-      const t = thief(), item = esc(CITIES[S.route[0]].item), Item = item[0].toUpperCase() + item.slice(1);
-      const msg = S.escaped ? [`BELLA RUSE ESCAPED!`, `She slipped out of her cell in a guard's uniform. Bella Ruse is on the loose again. ${Item} is still going home.`] : {
-        win: [S.boss ? `HALL OF FAME` : `ARRESTED`, S.boss ? `The hat comes off. It's Cameron SanFrancisco! You caught the leader of ${GANG}${P.dev ? " (Vault detectives stay out of the Hall of Fame.)" : " Your name goes into the Hall of Fame!"}` : `The hat comes off. It's ${t.name}, and your warrant names ${t.sex === "Female" ? "her" : "him"}. Off to jail! ${Item} is going home.`],
+      const t = thief(), item = esc(S.item || CITIES[S.route[0]].item), Item = item[0].toUpperCase() + item.slice(1);
+      const msg = S.escaped ? [`BELLA RUSE ESCAPED!`, `She slipped out of her cell in a guard's uniform. Bella Ruse is on the loose again. At least you got back ${item}!`] : {
+        win: [S.boss ? `HALL OF FAME` : `ARRESTED`, S.boss ? `The hat comes off. It's Cameron SanFrancisco! You caught the leader of ${GANG}${P.dev ? " (Vault detectives stay out of the Hall of Fame.)" : " Your name goes into the Hall of Fame!"}` : `The hat comes off. It's ${t.name}, and your warrant names ${t.sex === "Female" ? "her" : "him"}. Off to jail! You got back ${item}!`],
         wrong: [`WRONG WARRANT`, `The hat comes off. It's ${t.name}, but your warrant names someone else. ${pron()} walks away.`],
         nowarrant: [`NO WARRANT`, `The hat comes off. It's ${t.name}, but you have no warrant. ${pron()} walks away.`],
         time: [`OUT OF TIME`, `It's next Wednesday at 5 PM. ${t.name} got away with ${item}.`],
