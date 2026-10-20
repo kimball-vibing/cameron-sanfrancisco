@@ -352,7 +352,7 @@ let S = null;      // current case
 let PROFILES = store.get("csf-profiles") || {};
 let P = null, ui = "login", nameBuf = "";
 let HOF = store.get("csf-hof") || [];
-function saveProfile() { if (P) { PROFILES[P.name.toLowerCase()] = P; store.set("csf-profiles", PROFILES); } }
+function saveProfile() { if (P) { PROFILES[P.key || P.name.toLowerCase()] = P; store.set("csf-profiles", PROFILES); } }
 /* Secret test detective: sign in as "entervault". Starts as an Ace with everyone free; never enters the Hall of Fame. */
 const VAULT = "entervault";
 function signIn(name) {
@@ -361,6 +361,8 @@ function signIn(name) {
   P = PROFILES[key] || (PROFILES[key] = key === VAULT
     ? { name: "Vault", dev: true, solved: RANKS[RANKS.length - 1].at, rank: RANKS.length - 1, jailed: [], freeStart: true, created: Date.now() }
     : { name: name.trim(), solved: 0, rank: 0, created: Date.now() });
+  P.key = key; // each detective's progress and save live under their own sign-in name
+  if (P.dev && PROFILES.vault && PROFILES.vault.dev) delete PROFILES.vault; // stray copy from older builds
   if (P.dev && !P.freeStart) { P.jailed = []; P.freeStart = true; } // older Vault detectives started with everyone in jail
   P.last = Date.now(); saveProfile(); SFX.muted = !!P.mute; ui = null; S = null;
 }
