@@ -924,7 +924,7 @@
     var mode = f.blink ? 'blink' : t.pose.eye;
     t.eyes48.forEach(function (e) {
       var x0 = e.x0, x1 = e.x1, w = x1 - x0 + 1, outer = e.side < 0 ? x0 - 1 : x1 + 1;
-      var gx = t.gx, ix = w >= 4 ? x0 + 1 + gx : x0 + (gx > 0 ? 1 : gx < 0 ? 0 : (e.side < 0 ? 1 : 0)), x;
+      var gx = f.look != null ? f.look : t.gx, ix = w >= 4 ? x0 + 1 + gx : x0 + (gx > 0 ? 1 : gx < 0 ? 0 : (e.side < 0 ? 1 : 0)), x;
       ix = clamp(ix, x0, x1 - 1);
       var lid = function (y, c) { for (x = x0; x <= x1; x++) tint(x, y, c, 1); };
       var skin = function (y) { for (x = x0; x <= x1; x++) { var c = t.skc[y * S + x]; if (c) tint(x, y, c, 1); } };
@@ -1257,12 +1257,13 @@
   }
   /* Animation frames: copy the base portrait and repaint only the eye / mouth boxes,
      so nothing else can ever change between frames. */
-  function frameData(person, blink, talk, mode) {
+  function frameData(person, blink, talk, mode, look) {
     var base = baseData(person, mode);
-    if (!blink && !talk) return base;
-    return cacheGet(pkey(person) + '|' + (blink ? 1 : 0) + (talk ? 1 : 0) + mode, function () {
-      var v = render(person, modeOpts(mode, blink, talk)), out = new Uint8ClampedArray(base), b = boxes48(getTraits(person));
-      if (blink) { copyBox(out, v, b.eyeL); copyBox(out, v, b.eyeR); }
+    if (!blink && !talk && look == null) return base;
+    return cacheGet(pkey(person) + '|' + (blink ? 1 : 0) + (talk ? 1 : 0) + mode + '|' + look, function () {
+      var o = modeOpts(mode, blink, talk); if (look != null) o.look = look;
+      var v = render(person, o), out = new Uint8ClampedArray(base), b = boxes48(getTraits(person));
+      if (blink || look != null) { copyBox(out, v, b.eyeL); copyBox(out, v, b.eyeR); }
       if (talk) copyBox(out, v, b.mouth);
       return out;
     });
@@ -1333,7 +1334,7 @@
     person = person || {}; f = f || {};
     var data;
     try {
-      data = upscale(f.mystery ? mysteryData(person, f) : frameData(person, !!f.blink, !!f.talk, f.hat ? 1 : 0));
+      data = upscale(f.mystery ? mysteryData(person, f) : frameData(person, !!f.blink, !!f.talk, f.hat ? 1 : 0, f.look == null ? null : f.look));
     } catch (e) { if (window.console) console.warn('drawFace failed', e); return; }
     var ctx = canvas.getContext('2d'), img = new ImageData(data, W, H);
     if (canvas.width === W && canvas.height === H) { ctx.putImageData(img, 0, 0); return; }

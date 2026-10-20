@@ -448,17 +448,16 @@ function investigate(p) {
     text = `${Pn} ${S.clues[i][p]}`;
     for (const tr of S.traitAt[i] || []) if (tr.place === p) text += ` Also, ${Pn.toLowerCase()} ${TRAIT_SENTENCE[tr.k](thief()[tr.k])}`;
   }
-  // Now and then Bella Ruse poses as a witness (sunglasses, shifty) and plants a fake clue about a decoy city.
-  // Some ordinary witnesses wear sunglasses too.
-  let bella = false, shades = false, real = text;
+  // Now and then Bella Ruse poses as a witness (her eyes keep darting) and plants a fake clue about a decoy city.
+  let bella = false, real = text;
   if (i >= 0 && !isFinal && S.thief !== "bella" && !(S.bellaSeen ||= {})[id] && Math.random() < [0.08, 0.12, 0.16, 0.2, 0.24][rankIdx()]) {
     const decoy = pick(CITY_IDS.filter(c => c !== id && c !== S.route[i + 1] && !S.route.slice(0, i).includes(c)));
-    bella = shades = true; S.bellaSeen[id] = true;
+    bella = true; S.bellaSeen[id] = true;
     text = `${Pn} ${pick(window.CLUE_BANK[decoy].easy)}`;
-  } else if (!danger && Math.random() < 0.12) shades = true;
+  }
   if (isFinal || !S.notes.some(n => n.text === text)) S.notes.push({ city: CITIES[id].name, place, text });
   visited[p] = true;
-  S.witness = { place, ptype, text, seed: hash(id + p + S.thief), danger, shades, bella, real };
+  S.witness = { place, ptype, text, seed: hash(id + p + S.thief), danger, bella, real };
   S.screen = danger ? "danger" : "witness";
 }
 
@@ -622,8 +621,7 @@ function screenDef() {
       onShow: () => SFX.mumble(2.6, witnessPerson(S.witness.seed, S.city, S.witness.ptype).sex === "Female"),
       html: `<div class="view"><div class="paper"><span class="who">Witness at ${esc(S.witness.place)}</span>${esc(S.witness.text)}</div>${S.slept ? `<div class="sub">You slept at a hotel and woke at 9 AM.</div>` : ""}`,
       tail: `</div>`,
-      items: (S.witness.shades ? [{ label: "Look closer at the sunglasses", k: S.witness.bella ? "" : "", go: lookCloser }] : [])
-        .concat([{ label: "Continue", go: () => { S.screen = "inv"; } }]),
+      items: [{ label: "Continue", go: () => { S.screen = "inv"; } }],
     };
     case "unmask": return {
       art: "witness", noMenu: true, items: [], onShow: startUnmask,
@@ -880,11 +878,16 @@ function render() {
   const msg = flash ? `<div class="sub ok">${flash}</div>` : ""; flash = "";
   document.getElementById("stage").innerHTML = bar +
     `<div class="body ${cls}${d.black ? " black" : ""}">${left}${d.html}${d.noMenu ? "" : menuHTML(d.items)}${msg}${d.tail || ""}</div>` +
-    `<div class="foot"><span>${S && S.screen === "fly" ? "↑↓ pick a city · Enter fly" : S && S.screen === "dossiers" ? "←→ flip through the files" : "↑↓ choose · Enter select"}${d.back ? " · Esc back" : ""}</span><span class="foot-r">${canHome() ? `<button type="button" class="back" id="homebtn">⌂ Home (H)</button>` : ""}<button type="button" class="back" id="mutebtn">${P && P.mute ? "Sound off" : "Sound on"} (M)</button>${d.back ? `<button type="button" class="back" id="backbtn">◂ Back</button>` : ""}</span></div>`;
+    `<div class="foot"><span>${S && S.screen === "fly" ? "↑↓ pick a city · Enter fly" : S && S.screen === "dossiers" ? "←→ flip through the files" : S && S.screen === "witness" ? "Enter continue · E spot a disguise" : "↑↓ choose · Enter select"}${d.back ? " · Esc back" : ""}</span><span class="foot-r">${canHome() ? `<button type="button" class="back" id="homebtn">⌂ Home (H)</button>` : ""}<button type="button" class="back" id="mutebtn">${P && P.mute ? "Sound off" : "Sound on"} (M)</button>${d.back ? `<button type="button" class="back" id="backbtn">◂ Back</button>` : ""}</span></div>`;
   if (d.art === "city") drawLandmark(document.getElementById("art"), S.city);
   if (d.art === "witness" && S.screen === "witness") { const fc = document.getElementById("face");
-    talkingFace(fc, witnessPerson(S.witness.seed, S.city, S.witness.ptype), S.witness.shades, S.witness.bella && S.witness.shades);
-    if (S.witness.shades) { fc.style.cursor = "pointer"; fc.title = "Look closer"; fc.addEventListener("click", () => { SFX.click(); lookCloser(); sel = 0; render(); }); } }
+    const wp = witnessPerson(S.witness.seed, S.city, S.witness.ptype);
+    talkingFace(fc, wp, S.witness.bella);
+    // Pointing at the eyes or the hat/hair accuses the witness of being in disguise.
+    const spot = e => { const r = fc.getBoundingClientRect(), x = (e.clientX - r.left) * 96 / r.width, y = (e.clientY - r.top) * 96 / r.height, B = drawFace.boxes(wp);
+      return y < Math.min(B.eyeL[1], B.eyeR[1]) || [B.eyeL, B.eyeR].some(b => x >= b[0] - 4 && x <= b[2] + 4 && y >= b[1] - 4 && y <= b[3] + 4); };
+    fc.addEventListener("mousemove", e => { fc.style.cursor = spot(e) ? "pointer" : ""; });
+    fc.addEventListener("click", e => { if (spot(e)) { SFX.click(); accuseWitness(); sel = 0; render(); } }); }
   if (d.art === "witness" && S.screen === "unmask") drawFace(document.getElementById("face"), witnessPerson(S.witness.seed, S.city, S.witness.ptype));
   if (d.art === "thief") { const fc = document.getElementById("face"); drawFace(fc, facePerson(thief()));
     if (S.result === "win") drawBars(fc); }
@@ -899,37 +902,29 @@ function witnessPerson(seed, cityId, job) {
   return { seed, sex: r() < 0.5 ? "Female" : "Male", hair: reg.hair[Math.floor(r() * reg.hair.length)],
     skin: SKIN[reg.skin[Math.floor(r() * reg.skin.length)]], age, job, feature: null, style: "witness" };
 }
-function talkingFace(cv, person, shades, shifty) {
+// Bella's eyes dart left, right, left, back, then pause, over and over.
+const SHIFTY = [-1, -1, -1, 1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+function talkingFace(cv, person, shifty) {
   const t0 = performance.now(), reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  drawFace(cv, person); if (shades) drawShades(cv, person, 0);
-  if (reduce) return;
+  drawFace(cv, person);
+  if (reduce && !shifty) return;
   anim = { iv: setInterval(() => {
     const t = performance.now() - t0;
-    drawFace(cv, person, { talk: t < 2600 && Math.floor(t / 140) % 2 === 0, blink: !shades && t % 3200 > 3050 });
-    if (shades) drawShades(cv, person, 0);
-    // a shifty glance: the whole face jerks to one side and back now and then
-    if (shifty) cv.style.transform = t % 1700 > 1450 ? `translateX(${t % 3400 > 1700 ? 8 : -8}px)` : "";
+    drawFace(cv, person, { talk: t < 2600 && Math.floor(t / 140) % 2 === 0, blink: !shifty && t % 3200 > 3050,
+      look: shifty ? SHIFTY[Math.floor(t / 140) % SHIFTY.length] : null });
   }, 70) };
 }
-/* Dark sunglasses over the eyes, in 2x2 pixel blocks; lift (0..1) raises and spins them off the head. */
-function drawShades(cv, person, lift) {
-  const g = cv.getContext("2d"), B = drawFace.boxes(person), L = B.eyeL, Rb = B.eyeR;
-  const x0 = Math.min(L[0], Rb[0]) - 4 & ~1, x1 = Math.max(L[2], Rb[2]) + 4 & ~1, y0 = Math.min(L[1], Rb[1]) - 2 & ~1, y1 = Math.max(L[3], Rb[3]) + 4 & ~1;
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  g.save(); g.translate(cx + lift * 30, cy - lift * 90); g.rotate(lift * 4); g.translate(-cx, -cy);
-  const mid = (x0 + x1) / 2 & ~1, lens = (a, b) => { g.fillStyle = "#121018"; g.fillRect(a, y0, b - a, y1 - y0); g.fillStyle = "#3a3450"; g.fillRect(a + 2, y0 + 2, 4, 2); g.fillStyle = "#ffffff"; g.fillRect(a + 2, y0 + 2, 2, 2); };
-  lens(x0, mid - 2); lens(mid + 2, x1);
-  g.fillStyle = "#121018"; g.fillRect(mid - 2, y0 + 2, 4, 2); g.fillRect(x0 - 4, y0 + 2, 4, 2); g.fillRect(x1, y0 + 2, 4, 2);
-  g.restore();
-}
-/* Bella Ruse unmasked: the sunglasses fly off, her real face shows, and she runs off the screen. */
+/* Bella Ruse unmasked: the witness disguise is thrown off, her real face shows, and she runs off the screen. */
 function startUnmask() {
   const cv = document.getElementById("face"), w = S.witness, wp = witnessPerson(w.seed, S.city, w.ptype), bella = facePerson(SUSPECTS.find(x => x.id === "bella"));
   const t0 = performance.now(); let popped = false, ran = false;
-  cv.style.transition = "none";
+  const mask = document.createElement("canvas"); mask.width = mask.height = 96; drawFace(mask, wp); cutOut(mask);
+  const g = cv.getContext("2d"); g.imageSmoothingEnabled = false; cv.style.transition = "none";
   const step = now => {
     const t = now - t0;
-    if (t < 700) { drawFace(cv, wp); drawShades(cv, wp, t / 700); if (!popped) { popped = true; SFX.pop(); } }
+    if (t < 800) { const k = t / 800; drawFace(cv, bella);
+      if (!popped) { popped = true; SFX.pop(); }
+      g.save(); g.translate(48 + k * 40, 48 - k * k * 150); g.rotate(k * 3); g.drawImage(mask, -48, -48); g.restore(); }
     else if (t < 1900) { drawFace(cv, bella, { talk: Math.floor(t / 120) % 2 === 0 }); }
     else { if (!ran) { ran = true; for (let k = 0; k < 4; k++) setTimeout(() => SFX.step(), k * 110); }
       drawFace(cv, bella); cv.style.transform = `translateX(${-Math.min(1, (t - 1900) / 500) * 420}px)`; }
@@ -937,7 +932,16 @@ function startUnmask() {
   };
   anim = { raf: requestAnimationFrame(step) };
 }
-function lookCloser() {
+/* Erase a portrait's backdrop (flood fill from the edges over the backdrop colours) so only the person is left. */
+function cutOut(cv) {
+  const g = cv.getContext("2d"), im = g.getImageData(0, 0, 96, 96), d = im.data, key = i => d[i * 4] << 16 | d[i * 4 + 1] << 8 | d[i * 4 + 2];
+  const bg = new Set(), seen = new Uint8Array(96 * 96), q = [];
+  for (let k = 0; k < 96; k++) for (const i of k < 40 ? [k, k * 96, k * 96 + 95] : [k]) { bg.add(key(i)); q.push(i); }
+  while (q.length) { const i = q.pop(); if (seen[i] || !bg.has(key(i))) continue; seen[i] = 1; d[i * 4 + 3] = 0;
+    const x = i % 96; if (x > 0) q.push(i - 1); if (x < 95) q.push(i + 1); if (i >= 96) q.push(i - 96); if (i < 96 * 95) q.push(i + 96); }
+  g.putImageData(im, 0, 0);
+}
+function accuseWitness() {
   const w = S.witness;
   if (w.bella) {
     const n = S.notes.findIndex(x => x.text === w.text);
@@ -946,10 +950,10 @@ function lookCloser() {
     w.better = `${w.real} And Bella dropped a ticket stub as she ran: a flight ${dl > 0 ? "east" : "west"} to ${rankIdx() < 2 ? B.name : `somewhere in ${CONTINENT[next][0] + CONTINENT[next].slice(1).toLowerCase().replace(/ (\w)/, (m, c) => " " + c.toUpperCase())}`}.`;
     if (n >= 0) S.notes[n] = { city: A.name, place: "Bella Ruse (unmasked)", text: w.better };
     else S.notes.push({ city: A.name, place: "Bella Ruse (unmasked)", text: w.better });
-    w.shades = false; S.screen = "unmask";
-  } else {
+    w.bella = false; S.screen = "unmask";
+  } else if (!w.checked) {
     if (!advance(1)) return;
-    w.shades = false; w.checked = true; flash = "Just sunglasses. That took an hour.";
+    w.checked = true; flash = "No disguise. Just an honest witness. That took an hour.";
   }
 }
 
@@ -994,6 +998,7 @@ document.addEventListener("keydown", e => {
   if (scr === "walk" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); finishWalk(); return; }
   if (scr === "danger" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); endDanger(); return; }
   if ((e.key === "h" || e.key === "H") && canHome()) { goHome(); render(); return; }
+  if ((e.key === "e" || e.key === "E") && S && S.screen === "witness") { SFX.click(); accuseWitness(); sel = 0; render(); return; }
   if ((e.key === "m" || e.key === "M") && P) { SFX.muted = P.mute = !P.mute; saveProfile(); render(); return; }
   if (notes && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); notes.scrollTop += e.key === "ArrowDown" ? 60 : -60; return; }
   const side = scr === "fly" || scr === "inv" || scr === "dossiers" || (scr === "hint" && S.hint.type === "scramble" && !S.hint.done);

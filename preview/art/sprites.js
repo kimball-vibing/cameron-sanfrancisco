@@ -6,8 +6,8 @@
  *   drawSuspect(g, x, y, frame, opts)   fleeing suspect; opts {hat, hair, skin, run, flip, caught, glasses}
  *   drawFlyingHat(g, x, y, angleStep)   the suspect's fedora centred on x,y, rotated angleStep * 90deg
  *                                       (fractional steps allowed; snapped to 22.5deg)
- *   henchmanScene(g, t, style)          one frame of the 400x240 overlay; style "tiptoe" | "scoot" (aliases "sneak",
- *                                       "dance") | "peek" (cycles right/left/corner; or "peek-left" etc.);
+ *   henchmanScene(g, t, style)          one frame of the 400x240 overlay; style "tiptoe" | "scoot" | "peek" (aliases:
+ *                                       "sneak" = tiptoe, "dance" = scoot, "peek-left/-right/-corner" = peek);
  *                                       returns true while playing, false when done.
  * Everything is integer fillRect pixel art and deterministic from its inputs. People (detective, suspect,
  * henchman, flying hat) are drawn at half resolution into scratch canvases and blitted at 2x on even
@@ -842,424 +842,176 @@
     blit2(g, c, evenPx(x), evenPx(y), HAT / 2, HAT / 2, false);
   };
   /* =====================================================================
-   * HENCHMAN — a rounded cartoon burglar, ~85px tall in the 400x240 overlay (drawn at half-res, blitted 2x).
-   * Pear-shaped striped torso with a hunched back, noodle limbs, big soft shoes,
-   * white gloves, round head with beanie + black eye mask, sly eyes, huge grin.
-   * Drawn from scanline spans (rows of [y, x0, x1)) so curves stay crisp pixels.
+   * HENCHMAN — a tiny, simple 8-bit burglar, ~44px tall in the 400x240 overlay
+   * (22 half-res pixels, blitted at 2x). Five-ish flat colours, no shading:
+   * dark green cap + outfit, white shirt stripes and gloves, black mask/outline,
+   * skin, and a plain tan loot sack. Every pose is a hand-drawn character bitmap.
    * ===================================================================== */
-  var HC = {
-    ol: "#0e0a16", skin: "#f0b892", skinS: "#cf8d68", skinD: "#a8654a", stub: "#b98a78", nose: "#f0866e", noseS: "#c85a4a",
-    wht: "#f4f0e6", whtS: "#c4bfd2", blk: "#26222f", blkS: "#18151f", blkF: "#14121a",
-    pants: "#2c2a44", pantsS: "#1e1c30", belt: "#5a3a22", buckle: "#f7d046",
-    shoe: "#6a4890", shoeS: "#4a3068", shoeL: "#9a7ac0", sole: "#ece2d0",
-    glove: "#f8f4ec", gloveS: "#c8c2d6", gloveD: "#a29cb4",
-    mask: "#1a1624", maskL: "#3a3450", beanie: "#36324e", beanieL: "#5a5478", rib: "#24212f", pom: "#c8323c", pomL: "#f06a6a",
-    brow: "#2a1a14", mouth: "#5a1420", teeth: "#fbf8f0", teethS: "#c9c3d6", tongue: "#e8606e",
-    sack: "#c8a060", sackS: "#946e38", sackL: "#e8cc8c", rope: "#7a5a2a", cash: "#1e6a2e"
-  };
-  function sq(v) { return v * v; }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function ease(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
-  function easeIn(t) { t = clamp(t, 0, 1); return t * t * t; }
-  function easeBack(t) { t = clamp(t, 0, 1); var c = 2.2; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
-  function numCmp(a, b) { return a - b; }
-  function spPoly(pts, out) {
-    out = out || [];
-    var n = pts.length >> 1, y0 = 1e9, y1 = -1e9, i, y, xs = [];
-    for (i = 0; i < n; i++) { y = pts[2 * i + 1]; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    for (y = Math.ceil(y0 - 0.5); y + 0.5 <= y1; y++) {
-      var yc = y + 0.5; xs.length = 0;
-      for (i = 0; i < n; i++) {
-        var j = (i + 1) % n, ay = pts[2 * i + 1], by = pts[2 * j + 1];
-        if ((ay <= yc) !== (by <= yc)) { var ax = pts[2 * i]; xs.push(ax + (yc - ay) / (by - ay) * (pts[2 * j] - ax)); }
+  var HPAL = { K: "#15141c", G: "#1e5a32", W: "#f2eee4", S: "#f0b48a", T: "#c89a5a", B: "#8a6230" };
+  var bmMemo = {};
+  /* draw a bitmap (array of strings, "." = clear) with its top-left at (x, y); flip mirrors it horizontally */
+  function bm(h, rows, x, y, flip) {
+    var w = 0, i, j, row, c, j0;
+    for (i = 0; i < rows.length; i++) w = max(w, rows[i].length);
+    for (i = 0; i < rows.length; i++) {
+      row = rows[i];
+      for (j = 0; j < row.length; j = j0) {
+        c = row[j]; j0 = j + 1;
+        if (c === ".") continue;
+        while (j0 < row.length && row[j0] === c) j0++;
+        h.fillStyle = HPAL[c];
+        h.fillRect(round(x + (flip ? w - j0 : j)), round(y + i), j0 - j, 1);
       }
-      xs.sort(numCmp);
-      for (i = 0; i + 1 < xs.length; i += 2) { var a = round(xs[i]), b = round(xs[i + 1]); if (b > a) out.push(y, a, b); }
     }
-    return out;
+    return w;
   }
-  function spEll(cx, cy, rx, ry, ang, out) {
-    out = out || [];
-    var c = cos(ang || 0), s = sin(ang || 0), irx = 1 / (rx * rx), iry = 1 / (ry * ry);
-    var A = c * c * irx + s * s * iry, Bk = 2 * c * s * (irx - iry), Ck = s * s * irx + c * c * iry, R0 = max(rx, ry);
-    for (var y = floor(cy - R0); y <= Math.ceil(cy + R0); y++) {
-      var dy = y + 0.5 - cy, B = Bk * dy, C = Ck * dy * dy - 1, D = B * B - 4 * A * C;
-      if (D < 0) continue;
-      var q = sqrt(D), a = round(cx + (-B - q) / (2 * A)), b = round(cx + (-B + q) / (2 * A));
-      if (b > a) out.push(y, a, b);
-    }
-    return out;
-  }
-  /* paint spans; w > 0 grows them by a round w-pixel border (used for outlines) */
-  function paint(g, sp, c, w) {
-    g.fillStyle = c; w = w || 0;
-    for (var i = 0; i < sp.length; i += 3) {
-      var y = sp[i], a = sp[i + 1], b = sp[i + 2];
-      if (!w) { g.fillRect(a, y, b - a, 1); continue; }
-      for (var dy = -w; dy <= w; dy++) { var e = round(sqrt(w * w - dy * dy) + 0.3); g.fillRect(a - e, y + dy, b - a + 2 * e, 1); }
-    }
-  }
-  /* paint the part of spans `sp` that lies inside single-row-per-y spans `clip` */
-  function paintClip(g, sp, clip, c) {
-    var m = {}, i; for (i = 0; i < clip.length; i += 3) m[clip[i]] = [clip[i + 1], clip[i + 2]];
-    g.fillStyle = c;
-    for (i = 0; i < sp.length; i += 3) { var k = m[sp[i]]; if (!k) continue; var a = max(sp[i + 1], k[0]), b = min(sp[i + 2], k[1]); if (b > a) g.fillRect(a, sp[i], b - a, 1); }
-  }
-  function bezPts(x0, y0, cx, cy, x1, y1) { // quadratic bezier sampled ~1px apart
-    var L = abs(cx - x0) + abs(cy - y0) + abs(x1 - cx) + abs(y1 - cy), n = max(2, Math.ceil(L)), out = [];
-    for (var i = 0; i <= n; i++) { var t = i / n, u = 1 - t; out.push(u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1); }
-    return out;
-  }
-  function thru(x0, y0, mx, my, x1, y1) { return bezPts(x0, y0, 2 * mx - (x0 + x1) / 2, 2 * my - (y0 + y1) / 2, x1, y1); }
-  var discMemo = {};
-  function discRows(r) {
-    var key = r.toFixed(2), d = discMemo[key]; if (d) return d; d = [];
-    for (var dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) { var q = r * r - dy * dy; if (q < 0) continue; d.push(dy, floor(sqrt(q) + 0.35)); }
-    return (discMemo[key] = d);
-  }
-  function stamp(g, pts, r, c, stripe, period) {
-    var d = discRows(r), len = 0;
-    g.fillStyle = c;
-    for (var i = 0; i < pts.length; i += 2) {
-      if (i) len += sqrt(sq(pts[i] - pts[i - 2]) + sq(pts[i + 1] - pts[i - 1]));
-      if (stripe) g.fillStyle = floor(len / period) % 2 ? stripe : c;
-      var x = round(pts[i]), y = round(pts[i + 1]);
-      for (var j = 0; j < d.length; j += 2) g.fillRect(x - d[j + 1], y + d[j], d[j + 1] * 2 + 1, 1);
-    }
-  }
-  function tube(g, pts, r, c, w, stripe, period) { if (w) stamp(g, pts, r + w, HC.ol); stamp(g, pts, r, c, stripe, period); }
-  function seg(x0, y0, x1, y1) { return bezPts(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2, x1, y1); }
+  function px(h, x, y, c) { h.fillStyle = HPAL[c]; h.fillRect(round(x), round(y), 1, 1); }
 
-
-  /* ---- small head for the full-body henchman (half-res). cx, cy = skull centre, facing right.
-     F: { look -1..1, lids 0..1, wink, brow, t } ---- */
-  function hHeadS(g, cx, cy, F) {
-    var o = HC.ol, t = F.t || 0, i, dy, hw;
-    cx = round(cx); cy = round(cy);
-    // mask tails flapping behind
-    var f1 = round(sin(t / 70) * 1.2), f2 = round(sin(t / 70 + 1.4) * 1.2);
-    chain(g, [cx - 5, cy - 2, cx - 8, cy - 3 + f1, cx - 11, cy - 2 - f2], 1, HC.mask, o);
-    chain(g, [cx - 5, cy - 1, cx - 8, cy + 1 - f2, cx - 10, cy + 3 + f1], 1, HC.mask, o);
-    // skull + jaw
-    disc(g, cx, cy, 7, o); ellipse(g, cx + 1, cy + 3, 6, 4, o);
-    disc(g, cx, cy, 6, HC.skinS); ellipse(g, cx + 1, cy + 3, 5, 3, HC.skinS);
-    disc(g, cx + 1, cy - 1, 5, HC.skin); ellipse(g, cx + 2, cy + 2, 4, 3, HC.skin);
-    // ear
-    R(g, cx - 6, cy + 1, 3, 3, o); P(g, cx - 5, cy + 2, HC.skinD);
-    // black eye mask band wrapped round the head
-    for (dy = -4; dy <= 0; dy++) { hw = floor(sqrt(max(0, 36 - dy * dy)) + 0.35); R(g, cx - hw, cy + dy, hw * 2 + 1, 1, HC.mask); }
-    R(g, cx - 4, cy - 4, 3, 1, HC.maskL);
-    // eyes: whites, pupils that dart, a sly lid on the inner corner
-    var look = F.look || 0, ey = cy - 3, lids = F.lids == null ? 0.45 : F.lids;
-    var E = [[cx - 1, 2], [cx + 2, 3]];
-    for (i = 0; i < 2; i++) {
-      var ex = E[i][0], ew = E[i][1];
-      if (F.wink && i === 1) { P(g, ex, ey + 2, HC.wht); P(g, ex + 1, ey + 1, HC.wht); P(g, ex + 2, ey + 2, HC.wht); continue; }
-      R(g, ex, ey, ew, 3, HC.wht);
-      var px = ew === 3 ? ex + (look < -0.3 ? 0 : look > 0.3 ? 2 : 1) : ex + (look < -0.3 ? 0 : 1);
-      R(g, px, ey + 1, 1, 2, o);
-      if (lids > 0.3) { R(g, ex, ey, ew, 1, HC.mask); P(g, i ? ex : ex + ew - 1, ey + 1, lids > 0.6 ? HC.mask : HC.wht); }
-    }
-    // eyebrows on the forehead, just under the beanie
-    var bu = F.brow > 1 ? 1 : 0;
-    R(g, cx - 1, cy - 5 - bu, 2, 1, HC.brow); R(g, cx + 2, cy - 5 - bu, 3, 1, HC.brow);
-    // big round nose
-    ellipse(g, cx + 7, cy + 1, 3, 2, o); ellipse(g, cx + 7, cy + 1, 2, 1, HC.nose); P(g, cx + 6, cy, "#ffd8c8"); P(g, cx + 8, cy + 2, HC.noseS);
-    // sneaky grin: corners tucked up, one clean row of white teeth
-    var my = cy + 4;
-    P(g, cx - 1, my - 1, o); P(g, cx, my, o); R(g, cx + 1, my, 4, 1, HC.teeth); P(g, cx + 5, my, o); P(g, cx + 6, my - 1, o);
-    R(g, cx + 1, my + 1, 4, 1, o);
-    // beanie: dome, ribbed fold, pompom
-    disc(g, cx - 1, cy - 13, 2, o); disc(g, cx - 1, cy - 13, 1, HC.pom); P(g, cx - 2, cy - 14, HC.pomL);
-    ellTop(g, cx, cy - 7, 8, 6, o, cy - 7); ellTop(g, cx, cy - 7, 7, 5, HC.beanie, cy - 7);
-    R(g, cx - 3, cy - 11, 3, 1, HC.beanieL); P(g, cx - 4, cy - 10, HC.beanieL);
-    R(g, cx - 8, cy - 9, 17, 4, o); R(g, cx - 7, cy - 8, 15, 2, HC.beanie);
-    for (i = -6; i < 8; i += 2) R(g, cx + i, cy - 8, 1, 2, HC.rib);
+  /* ---- front view (peek + scoot). Head rows 0..12, eyes are 2x2 whites at cols 1-2 / 7-8, rows 7-8 ---- */
+  var H_HEAD = [
+    "...KKKK...",
+    ".KKGGGGKK.",
+    "KGGGGGGGGK",
+    "KGGGGGGGGK",
+    "KKKKKKKKKK",
+    "KSSSSSSSSK",
+    "KKKKKKKKKK",
+    "KWWKKKKWWK",
+    "KWWKKKKWWK",
+    "KSSSSSSSSK",
+    "KSSSKKSSSK",
+    ".KSSSSSSK.",
+    "..KKKKKK.."
+  ];
+  var H_GRIN = [                          // rows 9..11 replaced for a big grin
+    "KSKSSSSKSK",
+    "KSKWWWWKSK",
+    ".KSKKKKSK."
+  ];
+  var H_TORSO = [                         // rows 13..18 under the front head
+    ".KGGGGGGK.",
+    "KWWWWWWWWK",
+    "KGGGGGGGGK",
+    "KWWWWWWWWK",
+    "KGGGGGGGGK",
+    "KKKKKKKKKK"
+  ];
+  var H_LEGS = [                          // crouched shuffle, 12 wide (drawn 1px left of the body)
+    ["KGGGKKKGGGK.", "KGGK...KGGK.", "KKKK...KKKK."],
+    [".KGGGKKGGGK.", "..KGGKKGGK..", ".KKKK..KKKK."],
+    [".KGGGKKKGGGK", ".KGGK...KGGK", ".KKKK...KKKK"]
+  ];
+  /* right-hand arms, 4 wide, drawn so that row 6 sits on body row 13 (the shoulder) */
+  var H_ARM = {
+    up: [".KK.", "KWWK", "KWWK", "KGGK", ".KGK", ".KGK", "KGK.", "K...", "...."],
+    mid: ["....", "....", "....", "....", "....", "..KK", "KGWW", "KGWW", "K.KK"],
+    down: ["....", "....", "....", "....", "....", "....", "KGK.", "KGGK", ".KGK", ".KWW", ".KWW", "..KK"]
+  };
+  function eyes(h, x, y, look) {          // look: -1 left, 0 ahead, 1 right
+    var a = look < 0 ? 1 : 2, b = look > 0 ? 8 : 7;
+    px(h, x + a, y + 8, "K"); px(h, x + b, y + 8, "K");
+  }
+  function frontHead(h, x, y, look, grin) {
+    bm(h, H_HEAD, x, y);
+    if (grin) bm(h, H_GRIN, x, y + 9);
+    eyes(h, x, y, look);
   }
 
-  /* ---- big head for the peek (half-res, r ~ 11). cx, cy = skull centre, facing right.
-     F: { look -1..1, lids 0..1, wink, brow, grinW, t } ---- */
-  function hHeadBig(g, cx, cy, F) {
-    var o = HC.ol, t = F.t || 0, i, dy, hw;
-    cx = round(cx); cy = round(cy);
-    var f1 = sin(t / 70) * 1.6, f2 = sin(t / 70 + 1.4) * 1.6;
-    chain(g, bezPts(cx - 9, cy - 3, cx - 15, cy - 6 + f1, cx - 21, cy - 2 - f2), 2, HC.mask, o);
-    chain(g, bezPts(cx - 9, cy - 1, cx - 14, cy + 2 - f2, cx - 18, cy + 7 + f1), 2, HC.mask, o);
-    // skull + jaw
-    disc(g, cx, cy, 12, o); ellipse(g, cx + 2, cy + 5, 10, 7, o);
-    disc(g, cx, cy, 11, HC.skinS); ellipse(g, cx + 2, cy + 5, 9, 6, HC.skinS);
-    disc(g, cx + 1, cy - 1, 10, HC.skin); ellipse(g, cx + 3, cy + 4, 8, 6, HC.skin);
-    // ear
-    ellipse(g, cx - 10, cy + 3, 3, 4, o); ellipse(g, cx - 10, cy + 3, 2, 3, HC.skinS); R(g, cx - 10, cy + 2, 1, 3, HC.skinD);
-    // mask band
-    for (dy = -6; dy <= 1; dy++) { hw = floor(sqrt(max(0, 121 - dy * dy)) + 0.35); R(g, cx - hw, cy + dy, hw * 2 + 1, 1, HC.mask); }
-    R(g, cx - 7, cy - 6, 6, 1, HC.maskL);
-    // eyes
-    var look = F.look || 0, lids = F.lids == null ? 0.45 : F.lids, E = [[cx - 1, 4], [cx + 5, 5]], ey = cy - 5;
-    for (i = 0; i < 2; i++) {
-      var ex = E[i][0], ew = E[i][1];
-      if (F.wink && i === 1) { R(g, ex, ey + 3, 1, 1, HC.wht); R(g, ex + 1, ey + 2, 1, 1, HC.wht); R(g, ex + 2, ey + 1, 1, 1, HC.wht); R(g, ex + 3, ey + 2, 1, 1, HC.wht); R(g, ex + 4, ey + 3, 1, 1, HC.wht); continue; }
-      R(g, ex, ey + 1, ew, 3, HC.wht); R(g, ex + 1, ey, ew - 2, 5, HC.wht);
-      var px = ex + round((ew - 2) / 2 + look * (ew - 2) / 2);
-      R(g, px, ey + 1, 2, 3, o); P(g, px, ey + 1, "#ffffff");
-      if (lids > 0.3) { R(g, ex, ey, ew, 1, HC.mask); P(g, i ? ex : ex + ew - 1, ey + 1, HC.mask); if (lids > 0.5) P(g, i ? ex + 1 : ex + ew - 2, ey + 1, HC.mask); }
-    }
-    // big round nose
-    ellipse(g, cx + 12, cy + 3, 5, 4, o); ellipse(g, cx + 12, cy + 3, 4, 3, HC.noseS); ellipse(g, cx + 11, cy + 2, 3, 2, HC.nose);
-    R(g, cx + 10, cy + 1, 2, 1, "#ffd8c8");
-    // sneaky grin: a wide white crescent, outlined, corners tucked up
-    var gw = F.grinW > 1 ? 1 : 0, x0 = cx - 3 - gw, x1 = cx + 9, x;
-    for (x = x0; x <= x1; x++) {
-      var q = (x - x0) / (x1 - x0), top = round(cy + 6 + 2.6 * (1 - sq(2 * q - 1)) + q), bot = round(cy + 6 + q + (2.6 + 3.2) * (1 - sq(2 * q - 1)));
-      R(g, x, top - 1, 1, bot - top + 3, o);
-      if (bot > top) { R(g, x, top, 1, bot - top, HC.teeth); if (bot - top > 2) R(g, x, bot - 1, 1, 1, HC.mouth); }
-    }
-    P(g, x0 - 1, cy + 5, o); P(g, x1 + 1, cy + 6, o);
-    // beanie: dome, ribbed fold, pompom
-    disc(g, cx - 2, cy - 19, 3, o); disc(g, cx - 2, cy - 19, 2, HC.pom); P(g, cx - 3, cy - 20, HC.pomL); P(g, cx - 2, cy - 20, HC.pomL);
-    ellTop(g, cx, cy - 11, 13, 8, o, cy - 11); ellTop(g, cx, cy - 11, 12, 7, HC.beanie, cy - 11);
-    R(g, cx - 6, cy - 16, 4, 1, HC.beanieL); R(g, cx - 7, cy - 15, 2, 2, HC.beanieL);
-    R(g, cx - 14, cy - 13, 29, 6, o); R(g, cx - 13, cy - 12, 27, 4, HC.beanie);
-    for (i = -12; i < 14; i += 2) R(g, cx + i, cy - 12, 1, 4, HC.rib);
-    R(g, cx - 13, cy - 12, 27, 1, HC.beanieL);
-    // eyebrows
-    var bu = F.brow || 0;
-    if (bu) { R(g, cx - 1, cy - 8 - bu, 4, 1, HC.brow); R(g, cx + 5, cy - 8 - bu, 5, 1, HC.brow); }
-    else { R(g, cx - 1, cy - 7, 4, 1, HC.brow); R(g, cx + 5, cy - 7, 5, 1, HC.brow); }
-  }
+  /* ---- side view for the tiptoe: hunched forward, facing right, sack on the back. 21 wide, 22 tall ---- */
+  var T_TOP = [
+    "...KKKK..............",
+    "..KTTTTK.............",
+    ".KTTTTTTK....KKKKK...",
+    ".KTTTTTTTK..KGGGGGK..",
+    "KTTTTTTTTK.KGGGGGGGK.",
+    "KTTTTTTTTK.KKKKKKKKKK",
+    "KTTTTTTTTK.KSSSSSSSK.",
+    "KTTTTTTTTKKKKKKKKKKK.",
+    ".KTTTTTTKBKKWWKKKWWK.",
+    "..KKKKKKBKKKWKKKKWKK.",
+    ".....KGBGKSSSSSSSSSK.",
+    "....KWBWWKSSSSSKKKSK.",
+    "....KGGBGGKSSSSSSSK..",
+    "...KWWWWBWWKKKKKKK...",
+    "...KGGGGGBKWWK.......",
+    "...KWWWWWWKWWK.......",
+    "....KGGGGGGKK........",
+    "....KKKKKKKK........."
+  ];
+  var T_LEGS = [
+    ["....KGGKKGGK.........", "...KGGK..KGGK........", "..KGGK....KGK........", "..KK.......KK........"],
+    [".....KGGGGK..........", ".....KGKGGK..........", ".....KGKKGK..........", ".....KK.KK..........."],
+    ["....KGGKKGGK.........", "....KGGK.KGGK........", "....KGK...KGGK.......", "....KK......KK......."]
+  ];
+  var T_LOOK = [                          // rows 8..9 with the eyes turned to the viewer (mid-sneak freeze)
+    ".KTTTTTTKBKKWWKKKWWK.",
+    "..KKKKKKBKKKKWKKKKWK."
+  ];
 
-  /* ---- gloves (half-res): x,y = wrist, ang = pointing direction ---- */
-  function glove(g, x, y, ang, type, far) {
-    var c = far ? HC.gloveS : HC.glove, ca = cos(ang), sa = sin(ang), j, fingers = [];
-    var px = x + ca * 1.5, py = y + sa * 1.5;
-    if (type === "open" || type === "paw") {
-      var spread = type === "paw" ? 0.45 : 0.7;
-      for (j = -1; j <= 1; j++) { var fa = ang + j * spread; fingers.push([px, py, px + cos(fa) * 3, py + sin(fa) * 3]); }
-    } else if (type === "finger") {
-      fingers.push([px, py, px + ca * 4, py + sa * 4]);
-    }
-    for (j = 0; j < fingers.length; j++) chain(g, fingers[j], 3, HC.ol);
-    var pa = spEll(px, py, 2, 2); paint(g, pa, HC.ol, 1);
-    for (j = 0; j < fingers.length; j++) chain(g, fingers[j], 1, c);
-    paint(g, pa, c); P(g, px - sa, py + ca, far ? HC.gloveD : HC.gloveS);
-  }
-  /* ---- big soft shoe (half-res): x,y = ankle; a = toe-down tilt ---- */
-  function hShoe(g, ax, ay, a, far) {
-    var ca = cos(a), sa = sin(a);
-    function rv(fx, fy) { return [ax + ca * fx - sa * fy, ay + sa * fx + ca * fy]; }
-    var c0 = rv(2.3, 1), sp = spEll(c0[0], c0[1], 4.2, 2.2, a);
-    paint(g, sp, HC.ol, 1); paint(g, sp, HC.sole);
-    var c1 = rv(2.2, 0.4), up = spEll(c1[0], c1[1], 4, 1.6, a); paint(g, up, far ? HC.shoeS : HC.shoe);
-    var c2 = rv(4, -0.4); P(g, c2[0], c2[1], far ? HC.shoe : HC.shoeL);
-  }
-  function footDrop(a) { return 2.3 * sin(a) + 1 * cos(a) + sqrt(sq(4.2 * sin(a)) + sq(2.2 * cos(a))) + 1.5; }
-  function hSack(g, cx, cy, tieX, tieY) {
-    var s1 = spEll(cx, cy, 5.5, 5, 0.25); spEll(cx + 1, cy + 2, 4.5, 3.5, 0, s1);
-    var nk = spPoly([cx + 1, cy - 3.5, tieX - 1, tieY - 1, tieX + 1, tieY + 1, cx + 3.5, cy - 2]);
-    paint(g, nk, HC.ol, 1); paint(g, s1, HC.ol, 1); paint(g, nk, HC.sackS); paint(g, s1, HC.sackS);
-    paint(g, spEll(cx - 0.5, cy - 0.5, 4.6, 4.2, 0.25), HC.sack);
-    P(g, cx - 3, cy - 3, HC.sackL); P(g, cx - 2, cy - 3, HC.sackL);
-    // a dollar sign
-    g.fillStyle = HC.cash; R(g, cx - 1, cy - 3, 3, 1); P(g, cx - 1, cy - 2); R(g, cx - 1, cy - 1, 3, 1); P(g, cx + 1, cy); R(g, cx - 1, cy + 1, 3, 1); P(g, cx, cy - 4); P(g, cx, cy + 2);
-    R(g, tieX - 1, tieY - 1, 3, 3, HC.ol); P(g, tieX, tieY, HC.rope);
-  }
+  /* All henchman scenes draw into a 200x120 half-res canvas, blitted at 2x onto the 400x240 overlay.
+   * Feet rest on GROUND; the banner (half-res x 6..58, y 95..110) is only ever passed, never stopped at. */
+  var GROUND = 116;
 
-  /* ---- the whole henchman, half-res. Body frame: origin on the ground, facing right.
-     P: { x, y, flip, hip:[x,y], lean, hunch, feet:[{x,y,a} near, far], arms:[near, far], face:{...}, t, headBob, sackDy } */
-  function hFig(g, Q) {
-    var t = Q.t || 0;
-    g.save(); g.translate(round(Q.x), round(Q.y)); if (Q.flip) g.scale(-1, 1);
-    var B = Q.hip, lean = Q.lean, Ls = 13, hunch = Q.hunch == null ? 3.7 : Q.hunch;
-    var u = [sin(lean), -cos(lean)], fw = [cos(lean), sin(lean)];
-    var N = [B[0] + u[0] * Ls, B[1] + u[1] * Ls], C = [(B[0] + N[0]) / 2 - fw[0] * hunch, (B[1] + N[1]) / 2 - fw[1] * hunch];
-    function S(s) {
-      if (s < 0) return [B[0] + 2 * (C[0] - B[0]) * s, B[1] + 2 * (C[1] - B[1]) * s];
-      var q = 1 - s; return [q * q * B[0] + 2 * q * s * C[0] + s * s * N[0], q * q * B[1] + 2 * q * s * C[1] + s * s * N[1]];
-    }
-    function Nb(s) { s = max(0, s); var tx = 2 * (1 - s) * (C[0] - B[0]) + 2 * s * (N[0] - C[0]), ty = 2 * (1 - s) * (C[1] - B[1]) + 2 * s * (N[1] - C[1]), L = sqrt(tx * tx + ty * ty) || 1; return [ty / L, -tx / L]; }
-    function wb(s) { s = max(0, s); return (21 - 13 * Math.pow(s, 1.2) + 7 * Math.exp(-sq((s - 0.62) / 0.2))) / 3; }
-    function wf(s) { s = max(0, s); return (7 + 16 * Math.pow(1 - s, 1.6)) / 3; }
-    function edge(s, side, frac) {
-      var p = S(s), n = Nb(s), cp = s < 0 ? sqrt(max(0, 1 - sq(s / 0.24))) : 1, w = (side < 0 ? wb(s) : -wf(s)) * cp * (frac == null ? 1 : frac);
-      return [p[0] + n[0] * w, p[1] + n[1] * w];
-    }
-    function band(sA, sB, fracF) {
-      var pts = [], s2, e;
-      for (s2 = sA; s2 < sB; s2 += 0.04) { e = edge(s2, -1); pts.push(e[0], e[1]); }
-      e = edge(sB, -1); pts.push(e[0], e[1]);
-      for (s2 = sB; s2 > sA; s2 -= 0.04) { e = fracF == null ? edge(s2, 1) : lerp2(edge(s2, -1), edge(s2, 1), fracF); pts.push(e[0], e[1]); }
-      e = fracF == null ? edge(sA, 1) : lerp2(edge(sA, -1), edge(sA, 1), fracF); pts.push(e[0], e[1]);
-      return spPoly(pts);
-    }
-    var sh = S(0.84), nb = Nb(0.84), shN = [sh[0] - nb[0] * 1, sh[1] - nb[1] * 1 + 0.7], shF = [sh[0] + nb[0] * 1.3, sh[1] + nb[1] * 1.3];
-    var hb = Q.headBob || 0, H = [N[0] + u[0] * 4.5 + fw[0] * 3, N[1] + u[1] * 4.5 + fw[1] * 3 + hb];
-    var mouth = [round(H[0]) + 3, round(H[1]) + 4];
-    function arm(A, shp, far) {
-      var hx, hy, el, pts;
-      if (A.to === "mouth") { hx = mouth[0] + 4; hy = mouth[1] + 7; } else { hx = A.h[0]; hy = A.h[1]; }
-      if (A.ctrl) { el = A.ctrl; pts = bezPts(shp[0], shp[1], el[0], el[1], hx, hy); }
-      else { var q = ik(shp[0], shp[1], hx, hy, 6, 6, A.bend || 1); el = pt(shp[0], shp[1], q.a1, 6); pts = thru(shp[0], shp[1], el[0], el[1], hx, hy); }
-      chain(g, pts, 1, far ? HC.whtS : HC.wht, HC.ol, far ? HC.blkF : HC.blk, 2);
-      var ang = A.ha != null ? A.ha : Math.atan2(hy - el[1], hx - el[0]);
-      glove(g, hx, hy, ang, A.hand || "open", far);
-    }
-    function leg(hp, F, far) {
-      var q = ik(hp[0], hp[1], F.x, F.y, 7.3, 7, 1), kn = pt(hp[0], hp[1], q.a1, 7.3);
-      chain(g, thru(hp[0], hp[1], kn[0], kn[1], F.x, F.y), 1, far ? HC.pantsS : HC.pants, HC.ol);
-      hShoe(g, F.x, F.y, F.a, far);
-    }
-    arm(Q.arms[1], shF, true);
-    leg([B[0] - 2, B[1]], Q.feet[1], true);
-    var sp6 = S(0.58), n6 = Nb(0.58), sk = Q.sackDy || 0;
-    if (Q.sack !== false) hSack(g, round(sp6[0] + n6[0] * (wb(0.58) + 1.5)), round(sp6[1] + n6[1] * (wb(0.58) + 1.5) + sk), round(shF[0] + nb[0]), round(shF[1] - 1));
-    leg([B[0] + 2, B[1] + 1], Q.feet[0], false);
-    var whole = band(-0.24, 1); paint(g, whole, HC.ol, 1);
-    paint(g, band(-0.24, 0.08), HC.pants); paint(g, band(-0.24, 0.08, 0.35), HC.pantsS);
-    var shirt = band(0.15, 1), shirtB = band(0.15, 1, 0.3);
-    paint(g, shirt, HC.wht); paint(g, shirtB, HC.whtS);
-    var axx = N[0] - B[0], axy = N[1] - B[1], al = sqrt(axx * axx + axy * axy), ux = axx / al, uy = axy / al;
-    for (var d = 3.5; d < al + 4; d += 3.5) { // black stripes across the body
-      var q0 = [B[0] + ux * d, B[1] + uy * d], q1 = [B[0] + ux * (d + 1.6), B[1] + uy * (d + 1.6)];
-      var st = spPoly([q0[0] + uy * 30, q0[1] - ux * 30, q0[0] - uy * 30, q0[1] + ux * 30, q1[0] - uy * 30, q1[1] + ux * 30, q1[0] + uy * 30, q1[1] - ux * 30]);
-      paintClip(g, st, shirt, HC.blk); paintClip(g, st, shirtB, HC.blkS);
-    }
-    paint(g, band(0.06, 0.15), HC.belt);
-    var bk = edge(0.105, 1, 0.75); R(g, round(bk[0]) - 1, round(bk[1]) - 1, 3, 3, HC.ol); P(g, round(bk[0]), round(bk[1]), HC.buckle);
-    hHeadS(g, H[0], H[1], Q.face || {});
-    if (Q.sack !== false) { var rp = seg(shF[0] + nb[0], shF[1] - 1, shN[0] + 2, shN[1] + 5); stamp(g, rp, 0.4, HC.rope); }
-    arm(Q.arms[0], shN, false);
-    g.restore();
-    return { H: H, mouth: mouth };
-  }
-  function lerp2(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
-
-  /* feet for a moving body: planted foot stays put, swing foot arcs forward. L = travel per step, u = step progress, k = step index */
-  function steps(k, u, L, lift, aPlant, aSwing, baseX, gap) {
-    var sw = -L / 2 + L * ease(u), pl = L / 2 - L * u, h = lift * sin(PI * u);
-    var swing = { x: baseX + sw, y: -footDrop(aSwing) - h, a: aSwing }, plant = { x: baseX + pl, y: -footDrop(aPlant), a: aPlant };
-    var near = k % 2 ? plant : swing, far = k % 2 ? swing : plant;
-    far = { x: far.x - gap, y: far.y - 1, a: far.a };
-    return [near, far];
-  }
-
-  /* All henchman scenes draw into a 200x120 half-res canvas (GROUND = 118), blitted at 2x onto the 400x240 overlay. */
-  var GROUND = 118;
-  /* tiptoe: stiff hunched body glides along; only the feet patter in tiny quick tiptoe steps */
-  var TIP_D = 4200, TIP_STEP = 140;
-  function sceneTiptoe(g, t) {
-    var x0 = -22, x1 = 222, tt = min(t, TIP_D), v = (x1 - x0) / TIP_D, bx = x0 + v * tt;
-    var k = floor(tt / TIP_STEP), u = (tt - k * TIP_STEP) / TIP_STEP;
-    var feet = steps(k, u, v * TIP_STEP, 2, 0.62, 0.62 + 0.35 * sin(PI * u), 2, 2.5);
-    var gl = floor(t / 650) % 6, look = [0, 0.2, 1, 0, -1, 0][gl];
-    hFig(g, { x: round(bx), y: GROUND, t: t, hip: [0, -16], lean: 0.5, hunch: 4,
-      feet: feet,
-      arms: [{ to: "mouth", bend: -1, hand: "finger", ha: -PI / 2 - 0.15 }, { h: [13, -21], bend: -1, hand: "paw", ha: PI / 2 + 0.25 }],
-      face: { look: look, lids: 0.5, brow: gl === 3 ? 2 : 0, t: t } });
-    // tiny tip-tap marks under the planted toe
-    if (u < 0.35) { var px = round(bx + feet[k % 2 ? 0 : 1].x + 4); g.fillStyle = "#f3e9d2"; g.fillRect(px - 2, GROUND - 2, 1, 1); g.fillRect(px + 2, GROUND - 2, 1, 1); g.fillRect(px, GROUND - 3, 1, 1); }
+  /* tiptoe (alias "sneak"): left to right on tiptoe with the loot sack, freezing once mid-screen to glance at us */
+  var TIP_D = 4000;
+  function sceneTiptoe(h, t) {
+    var walk1 = 1500, freeze = 700, x, k, look = false, legs;
+    if (t < walk1) x = -24 + t / walk1 * 130;                          // -24 .. 106
+    else if (t < walk1 + freeze) { x = 106; look = t > walk1 + 150 && t < walk1 + freeze - 100; }
+    else x = 106 + (t - walk1 - freeze) / (TIP_D - walk1 - freeze) * 120;
+    k = floor(t / 170) % 4;                                            // stride, pass, stride, pass
+    legs = look || (t >= walk1 && t < walk1 + freeze) ? T_LEGS[0] : T_LEGS[k === 1 || k === 3 ? 1 : k === 0 ? 0 : 2];
+    var bob = (k === 1 || k === 3) && !(t >= walk1 && t < walk1 + freeze) ? -1 : 0;
+    var X = round(x), Y = GROUND - 22 + bob;
+    bm(h, T_TOP, X, Y);
+    if (look) bm(h, T_LOOK, X, Y + 8);
+    bm(h, legs, X, Y + 18);
     return t < TIP_D;
   }
 
-  /* scoot (aliases "sneak", "dance"): low crouch, arms windmilling, legs a shuffling blur, right to left */
-  var SC_D = 3800, SC_STEP = 115;
-  function sceneScoot(g, t) {
-    var x0 = 232, x1 = -32, tt = min(t, SC_D), v = (x0 - x1) / SC_D, bx = x0 - v * tt;
-    var k = floor(tt / SC_STEP), u = (tt - k * SC_STEP) / SC_STEP, bob = -round(1 * abs(sin(PI * u)));
-    var feet = steps(k, u, v * SC_STEP, 2, -0.05, -0.25 + 0.2 * sin(PI * u), 2.5, 4);
-    var th = t / 380 * PI * 2, sh = [4.5, -22];
-    function wind(a, len, wob) {
-      var hx = sh[0] + sin(a) * len, hy = sh[1] - cos(a) * len, mx = (sh[0] + hx) / 2, my = (sh[1] + hy) / 2, px = -(hy - sh[1]), py = hx - sh[0], pl = sqrt(px * px + py * py) || 1;
-      return { h: [hx, hy + bob], ctrl: [mx + px / pl * wob, my + py / pl * wob + bob], hand: "open" };
-    }
-    hFig(g, { x: round(bx), y: GROUND, t: t, flip: true, hip: [0, -13 + bob], lean: 0.72 + 0.08 * sin(t / 70), hunch: 3, headBob: round(sin(t / 60)),
-      feet: feet, sackDy: round(sin(t / 55)),
-      arms: [wind(th, 10, 3.3 * sin(th * 2)), wind(th + PI, 9.5, -3.3 * sin(th * 2 + 1))],
-      face: { look: 1, lids: 0.2, brow: 2 + round(sin(t / 90)), t: t } });
-    // speed lines and dust behind him (he runs right-to-left, so "behind" is to the right)
-    g.fillStyle = "#f3e9d2";
-    for (var i = 0; i < 4; i++) { var w = 4 + ((i * 3 + floor(t / 60)) % 5); g.fillRect(round(bx + 17 + i * 2), 76 + i * 9, w, 1); }
-    for (i = 0; i < 3; i++) { var age = ((t / SC_STEP) + i / 3) % 1, r = round(1 + age * 2); if (age < 0.85) disc(g, round(bx + 9 + age * 10 + i * 2), GROUND - 1 - r, r, "#d8d0c4"); }
+  /* scoot (alias "dance"): low quick shuffle right to left, both arms pumping up and down in rhythm */
+  var SC_D = 3600, SC_BEAT = 160;
+  var SC_ARMS = [["up", "down"], ["mid", "mid"], ["down", "up"], ["mid", "mid"], ["up", "up"], ["down", "down"], ["up", "up"], ["down", "down"]];
+  function sceneScoot(h, t) {
+    var x = 212 - t / SC_D * 248, beat = floor(t / SC_BEAT), arms = SC_ARMS[beat % SC_ARMS.length];
+    var X = round(x), Y = GROUND - 22 + (beat % 2 ? 1 : 0), look = -1;
+    var legs = H_LEGS[floor(t / 90) % 2 ? 0 : (floor(t / 180) % 2 ? 1 : 2)];
+    bm(h, H_ARM[arms[0]], X - 4, Y + 7, true);                          // his right arm (viewer's left)
+    bm(h, H_ARM[arms[1]], X + 10, Y + 7);
+    frontHead(h, X, Y, look, true);
+    bm(h, H_TORSO, X, Y + 13);
+    bm(h, legs, X - 1, Y + 19);
     return t < SC_D;
   }
 
-  /* peek: big head + gloved fingers come round the screen edge, eyes dart about, sly grin, wink, slip away */
-  var pkSrc = null, pkDst = null, PK = 80;
-  function canvas2(w) { var c = document.createElement("canvas"); c.width = w; c.height = w; return c; }
-  function rotBlit(g, src, cx0, cy0, dx, dy, ang, mirror) {
-    var W = src.width, sd = src.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, W, W).data;
-    if (!pkDst) pkDst = canvas2(W);
-    var dg = pkDst.getContext("2d", { willReadFrequently: true }), out = dg.createImageData(W, W), od = out.data, ca = cos(ang), sa = sin(ang);
-    for (var y = 0; y < W; y++) for (var x = 0; x < W; x++) {
-      var rx = x + 0.5 - cx0, ry = y + 0.5 - cy0, ux = ca * rx + sa * ry, uy = -sa * rx + ca * ry;
-      if (mirror) ux = -ux;
-      var ix = floor(ux + cx0), iy = floor(uy + cy0);
-      if (ix < 0 || iy < 0 || ix >= W || iy >= W) continue;
-      var si = (iy * W + ix) * 4; if (!sd[si + 3]) continue;
-      var di = (y * W + x) * 4; od[di] = sd[si]; od[di + 1] = sd[si + 1]; od[di + 2] = sd[si + 2]; od[di + 3] = sd[si + 3];
-    }
-    dg.putImageData(out, 0, 0);
-    g.drawImage(pkDst, round(dx - cx0), round(dy - cy0));
-  }
-  /* four gloved fingers curled round a screen edge. (bx,by) first finger base on the edge, d = inward dir, l = along-edge dir */
-  function grip(g, bx, by, d, l, amt, t, drum) {
-    for (var j = 0; j < 4; j++) {
-      var len = amt * (j === 0 || j === 3 ? 5 : 6.5);
-      if (drum && floor(t / 85) % 5 === j) len -= 2.5;
-      if (len <= 0) continue;
-      var x0 = bx + l[0] * j * 4 - d[0] * 3, y0 = by + l[1] * j * 4 - d[1] * 3, x1 = bx + l[0] * j * 4 + d[0] * len, y1 = by + l[1] * j * 4 + d[1] * len;
-      var p = seg(x0, y0, x1, y1);
-      stamp(g, p, 2.6, HC.ol); stamp(g, p, 1.6, HC.glove);
-      stamp(g, seg(x0 + l[0], y0 + l[1], x1 + l[0] - d[0], y1 + l[1] - d[1]), 0.4, HC.gloveS);
-    }
-  }
-  var PEEK_D = 3900, PEEK_SIDES = ["right", "left", "corner"], peekN = 0, peekLastT = 1e9;
-  var PEEK_LOOK = [[650, 1], [900, -1], [1120, 1], [1320, -1], [1500, 1], [1700, -1], [1900, 0], [2750, 1]];
-  function scenePeek(g, t, side) {
-    var r = 12, hin, fin, look = 1, wink = false, brow = 0, i, prevAt = 0;
-    hin = t < 650 ? easeBack((t - 180) / 470) : t < 3000 ? 1 : 1 - easeIn((t - 3000) / 420);
-    fin = t < 320 ? ease(t / 320) : t < 3350 ? 1 : 1 - ease((t - 3350) / 380);
-    for (i = 0; i < PEEK_LOOK.length; i++) if (t >= PEEK_LOOK[i][0]) { look = PEEK_LOOK[i][1]; prevAt = PEEK_LOOK[i][0]; }
-    if (t > 2150 && t < 2550) wink = true;
-    if (t > 1900 && t < 2750) brow = floor(t / 110) % 2 ? 2 : 0; // eyebrow waggle at the viewer
-    var dart = t > 650 && t < 1900 && t - prevAt < 90;
-    var tilt = 0, bobY = (dart ? -1 : 0) + (t > 1900 && t < 2750 && floor(t / 220) % 2 ? -1 : 0);
-    if (!pkSrc) pkSrc = canvas2(PK);
-    var sg = pkSrc.getContext("2d", { willReadFrequently: true }), hc = PK / 2, hcy = PK / 2 + 6;
-    sg.clearRect(0, 0, PK, PK);
-    hHeadBig(sg, hc, hcy, { look: look, lids: wink ? 0.35 : 0.55, grinW: t > 1900 ? 1.15 : 1, wink: wink, brow: brow, t: t });
-    if (dart) { sg.fillStyle = "#f3e9d2"; var zx = look > 0 ? hc + r + 8 : hc - r - 10; for (i = 0; i < 3; i++) sg.fillRect(zx, hcy - 4 + i * 2, 3 - (i % 2), 1); }
-    if (hin <= 0 && fin <= 0) return t < PEEK_D;
-    var hx, hy, ang, mirror, gone = 1 - clamp(hin, -0.2, 1.2);
-    if (side === "left") {
-      hx = 8 - gone * 38; hy = 58 + bobY; ang = tilt; mirror = false;
-      if (hin > -0.2) rotBlit(g, pkSrc, hc, hcy, hx, hy, ang, mirror);
-      grip(g, -1, 10, [1, 0], [0, 1], fin, t, t > 700 && t < 1900);
-      grip(g, -1, 76, [1, 0], [0, 1], fin, t + 200, t > 700 && t < 1900);
-    } else if (side === "corner") {
-      hx = 180 + gone * 14; hy = 106 + bobY + gone * 44; ang = -tilt; mirror = true;
-      if (hin > -0.2) rotBlit(g, pkSrc, hc, hcy, hx, hy, ang, mirror);
-      grip(g, 140, 121, [0, -1], [-1, 0], fin, t, t > 700 && t < 1900);
-      grip(g, 201, 46, [-1, 0], [0, 1], fin, t + 200, false);
-    } else {
-      hx = 192 + gone * 38; hy = 58 + bobY; ang = -tilt; mirror = true;
-      if (hin > -0.2) rotBlit(g, pkSrc, hc, hcy, hx, hy, ang, mirror);
-      grip(g, 201, 12, [-1, 0], [0, 1], fin, t, t > 700 && t < 1900);
-      grip(g, 201, 80, [-1, 0], [0, 1], fin, t + 200, t > 700 && t < 1900);
-    }
+  /* peek: head + gloved hands pop up from the bottom edge, look left, look right, big grin, drop back down */
+  var PEEK_D = 3700, PEEK_X = 140;
+  function scenePeek(h, t) {
+    var up;                                                            // how many rows show above the bottom edge
+    if (t < 350) up = ease(t / 350) * 19;
+    else if (t < 3100) up = 19;
+    else up = (1 - easeIn((t - 3100) / 450)) * 19;
+    var look = t < 600 ? 0 : t < 1200 ? -1 : t < 1850 ? 1 : 0, grin = t >= 2050 && t < 3100;
+    var hop = grin && floor((t - 2050) / 140) % 2 === 0 ? -1 : 0;     // little chuckle bounce
+    var X = PEEK_X, Y = 120 - round(up) + hop;
+    frontHead(h, X, Y, look, grin);
+    bm(h, H_TORSO, X, Y + 13);
+    var gy = Y + 13 - (grin ? 2 : 0);                                  // gloves gripping beside the chin
+    bm(h, H_GLOVE, X - 5, gy); bm(h, H_GLOVE, X + 10, gy, true);
     return t < PEEK_D;
   }
+  var H_GLOVE = [".KKKK", "KWKWK", "KWWWK", "KWWWK", "KGGGK", "KGGGK", "KGGGK", "KGGGK"];
+  function ease(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+  function easeIn(t) { t = clamp(t, 0, 1); return t * t; }
+
   window.henchmanScene = function (g, t, style) {
     g.clearRect(0, 0, 400, 240);
     t = max(0, t || 0);
     var c = scratch("hench", 200, 120), h = c.getContext("2d");
     var s = String(style || "peek"), r;
-    if (s === "tiptoe") r = sceneTiptoe(h, t);
-    else if (s === "scoot" || s === "sneak" || s === "dance") r = sceneScoot(h, t);
-    else {
-      var side = s.indexOf("peek-") === 0 ? s.slice(5) : null;
-      if (!side) { if (t < peekLastT) peekN++; peekLastT = t; side = PEEK_SIDES[peekN % PEEK_SIDES.length]; }
-      r = scenePeek(h, t, side);
-    }
+    if (s === "tiptoe" || s === "sneak") r = sceneTiptoe(h, t);
+    else if (s === "scoot" || s === "dance") r = sceneScoot(h, t);
+    else r = scenePeek(h, t);                                          // "peek", "peek-left", "peek-right", "peek-corner"
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
     blit2(g, c, 0, 0, 0, 0, false);
     g.restore();
