@@ -45,7 +45,7 @@ body {
 .bar .brand { font-family: var(--font-display); font-size: 15px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar .clock { font-variant-numeric: tabular-nums; font-size: 24px; white-space: nowrap; }
 .bar .clock b { color: var(--stamp); font-weight: normal; }
-.body { padding: 14px 16px; display: grid; gap: 18px; min-height: 0; grid-template-columns: 1fr; }
+.body { padding: 14px 16px; display: grid; gap: 18px; min-height: 0; grid-template-columns: 1fr; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--glow) transparent; }
 .body.art-city { grid-template-columns: 360px 1fr; }
 .body.art-face { grid-template-columns: 320px 1fr; }
 .body.black { background: #000; }
@@ -76,10 +76,11 @@ canvas.face { width: 314px; height: 314px; border: 3px solid var(--paper); }
 .title-screen.tight .menu button { padding: 3px 12px; }
 .namebox { font-family: var(--font-display); font-size: 30px; color: var(--ink); background: var(--paper); min-width: 420px; padding: 6px 12px; text-align: center; }
 .caret { color: var(--stamp); animation: pulse 1s steps(2) infinite; }
-.vault { gap: 4px; }
+.vault { gap: 3px; }
+.vault .sub { margin: 2px 0 0; }
 .vgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; }
-.vkey { height: 26px; font-size: 12px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vkey.on { border-color: var(--glow); }
+.key.vkey { height: 26px; font-size: 16px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.key.vkey.on { border-color: var(--glow); }
 .keys { display: grid; grid-template-columns: repeat(7, 60px); gap: 6px; }
 .key { font: inherit; color: var(--paper); background: #24305a; border: 2px solid #3b4a8a; height: 40px; cursor: pointer; }
 .key.wide { font-size: 20px; }
@@ -87,7 +88,7 @@ canvas.face { width: 314px; height: 314px; border: 3px solid var(--paper); }
 .hof { display: flex; flex-direction: column; gap: 6px; max-height: 250px; overflow: auto; }
 .hof div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #c9b8a0; }
 .hof span { color: #6a6070; }
-.title-screen { display: grid; place-items: center; text-align: center; gap: 10px; }
+.title-screen { display: grid; align-items: safe center; justify-items: center; text-align: center; gap: 10px; }
 .logo { font-family: var(--font-display); color: var(--glow); text-shadow: 4px 4px 0 var(--stamp); line-height: .95; }
 .logo .s { display: block; font-size: 24px; color: var(--paper); text-shadow: 3px 3px 0 var(--stamp); }
 .logo .l { display: block; font-size: 54px; }
@@ -392,10 +393,10 @@ function pickClues(route, ri) {
 
 /* Once you're an Ace Detective and the whole gang is in jail, the next case is Cameron SanFrancisco himself. */
 const bossDue = () => rankIdx() === RANKS.length - 1 && freeGang().length === 0 && !P.caughtCameron;
-function newCase() {
-  const ri = rankIdx(), rank = RANKS[ri], boss = bossDue();
+function newCase(force) {
+  const ri = rankIdx(), rank = RANKS[ri], boss = force ? force === "cameron" : bossDue();
   const route = shuffle(CITY_IDS).slice(0, boss ? 9 : rank.cities);
-  const free = freeGang(), tid = boss ? "cameron" : pick(free.length ? free : GANG_IDS), t = SUSPECTS.find(x => x.id === tid);
+  const free = freeGang(), tid = force || (boss ? "cameron" : pick(free.length ? free : GANG_IDS)), t = SUSPECTS.find(x => x.id === tid);
   // Pick trait clues until they (plus the sex) point to exactly one suspect.
   let pool = SUSPECTS.filter(s => s.sex === t.sex);
   const traits = [];
@@ -584,19 +585,30 @@ function screenDef() {
       // Test controls for the "entervault" detective: set the rank, and put anyone in or out of jail.
       const setRank = r => { P.rank = r; P.solved = RANKS[r].at; P.caughtCameron = 0; saveProfile(); return "stay"; };
       const toggle = id => { P.jailed = jailed().includes(id) ? jailed().filter(x => x !== id) : [...jailed(), id]; saveProfile(); return "stay"; };
+      // Pick who to chase, then play that case or jump straight to the final chase.
+      const who = P.vaultThief || "", whoName = who ? SUSPECTS.find(x => x.id === who).name : "Random";
+      const ids = ["", ...SUSPECTS.map(x => x.id)];
+      const skip = ok => { newCase(who || undefined); S.city = S.route[S.route.length - 1]; S.finalVisits = 2;
+        S.warrant = ok ? S.thief : pick(SUSPECTS.filter(x => x.id !== S.thief && x.sex === thief().sex)).id; S.screen = "chase"; ui = null; };
+      const step = d => () => { P.vaultThief = ids[(ids.indexOf(who) + d + ids.length) % ids.length]; saveProfile(); return "stay"; };
+      const chase = [{ label: "◂ Previous", go: step(-1) }, { label: `Chase: ${whoName}`, on: !!who, go: step(1) }, { label: "Next ▸", go: step(1) },
+        { label: "Play this case", go: () => { newCase(who || undefined); ui = null; } },
+        { label: "Skip to chase + warrant", go: () => skip(true) },
+        { label: "Skip to chase, wrong warrant", go: () => skip(false) }];
       const items = RANKS.map((r, i) => ({ label: r.name, on: rankIdx() === i, go: () => setRank(i) }))
         .concat(SUSPECTS.filter(x => x.id !== "cameron").map(x => ({ label: x.name, on: jailed().includes(x.id), go: () => toggle(x.id) })))
         .concat([{ label: "Jail everyone", go: () => { P.jailed = GANG_IDS.slice(); saveProfile(); return "stay"; } },
           { label: "Free everyone", go: () => { P.jailed = []; saveProfile(); return "stay"; } },
-          { label: "Done", go: () => { ui = null; } }]);
+          { label: "Done", go: () => { ui = null; } }]).concat(chase);
       const btn = (it, i) => `<button type="button" class="key vkey ${i === sel ? "sel" : ""} ${it.on ? "on" : ""}" data-i="${i}">${it.on ? "✓ " : ""}${esc(it.label)}</button>`;
       const nR = RANKS.length, nG = GANG_IDS.length;
+      const row = (a, b, cols) => `<div class="vgrid" style="grid-template-columns:repeat(${cols},1fr)">${items.slice(a, b).map((it, i) => btn(it, i + a)).join("")}</div>`;
       return {
         noMenu: true, back: () => { ui = null; },
-        html: `<div class="view vault"><div class="place" style="font-size:22px">Vault controls</div>
-          <div class="sub">Rank (sets cases solved to match)</div><div class="vgrid">${items.slice(0, nR).map((it, i) => btn(it, i)).join("")}</div>
-          <div class="sub">In jail (✓) · ${freeGang().length} free. ${bossDue() ? "Next case: Cameron!" : ""}</div><div class="vgrid">${items.slice(nR, nR + nG).map((it, i) => btn(it, i + nR)).join("")}</div>
-          <div class="vgrid">${items.slice(nR + nG).map((it, i) => btn(it, i + nR + nG)).join("")}</div>`,
+        html: `<div class="view vault"><div class="place" style="font-size:18px">Vault controls</div>
+          <div class="sub">Rank (sets cases solved to match)</div>${row(0, nR, 5)}
+          <div class="sub">In jail (✓) · ${freeGang().length} free. ${bossDue() ? "Next case: Cameron!" : ""}</div>${row(nR, nR + nG, 4)}${row(nR + nG, nR + nG + 3, 3)}
+          <div class="sub">Test a chase</div>${row(nR + nG + 3, nR + nG + 6, 3)}${row(nR + nG + 6, items.length, 3)}`,
         tail: `</div>`, items,
       };
     }
@@ -934,6 +946,8 @@ function render() {
     if (S.result === "win" && !S.escaped) drawBars(fc); }
   if (d.art === "dossier") { const s = SUSPECTS[sel] || SUSPECTS[0], fc = document.getElementById("face"); drawFace(fc, facePerson(s)); if (jailed().includes(s.id)) drawBars(fc); }
   document.querySelectorAll("[data-bldg]").forEach(cv => drawBuilding(cv, cv.dataset.bldg));
+  // Screens with more buttons than fit scroll; keep the highlighted one in view.
+  const on = document.querySelector(".menu .sel, .key.sel"); if (on) on.scrollIntoView({ block: "nearest" });
   if (d.onShow) d.onShow();
 }
 
