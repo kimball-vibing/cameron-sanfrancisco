@@ -600,15 +600,22 @@ function advance(hours) {
 function end(why) {
   if (why === "caught") why = S.warrant === S.thief ? "win" : (S.warrant ? "wrong" : "nowarrant");
   S.result = why; S.screen = "end";
+  P.run = (P.run || 0) + 1; // every case counts toward this run's record, solved or not
   if (why === "win") {
     P.solved++; S.examDue = !S.boss && examDue();
     if (!S.boss && (S.thief !== "bella" || bellaStays())) { P.jailed = [...new Set([...jailed(), S.thief])]; S.jailed = true; }
     if (S.thief === "bella" && !S.jailed) { S.bellaEscapes = true; P.jailed = jailed().filter(x => x !== "bella"); }
-    if (S.boss && !P.dev) { P.caughtCameron = (P.caughtCameron || 0) + 1; HOF.push({ name: P.name, date: new Date().toISOString().slice(0, 10), solved: P.solved, rank: rankOf().name }); store.set("csf-hof", HOF); }
+    if (S.boss) {
+      P.caughtCameron = (P.caughtCameron || 0) + 1; S.runCases = P.run; S.oldBest = P.best;
+      if (!P.best || P.run < P.best) { P.best = P.run; S.newBest = true; }
+      if (!P.dev) { P.hof = true; HOF.push({ name: P.name, date: new Date().toISOString().slice(0, 10), solved: P.solved, cases: P.run, rank: rankOf().name }); store.set("csf-hof", HOF); }
+    }
   }
   delete P.save; saveProfile();
 }
 
+/* After catching Cameron, start over as a Rookie with the whole gang free and try to catch him in fewer cases. */
+function newRun() { Object.assign(P, { rank: 0, solved: 0, jailed: [], caughtCameron: 0, run: 0 }); delete P.save; saveProfile(); newCase(); }
 function flyOptions(id) {
   if (S.flyOptions[id]) return S.flyOptions[id];
   const i = S.route.indexOf(id);
@@ -717,7 +724,8 @@ function screenDef() {
       const saved = P.save, r = rankOf();
       const items = [];
       if (saved && saved.clues) items.push({ label: "Continue saved game", k: fmtTime(saved.time), go: () => { S = saved; S.screen = "city"; } });
-      items.push({ label: "Start a new case", go: () => { newCase(); } });
+      if (P.caughtCameron) items.push({ label: "Start a new run", k: P.best ? `beat ${P.best}` : "", go: newRun });
+      else items.push({ label: "Start a new case", go: () => { newCase(); } });
       items.push({ label: "Dossiers", go: () => { S = { screen: "dossiers" }; } });
       items.push({ label: "Hall of Fame", go: () => { ui = "hof"; } });
       if (P.dev) items.push({ label: "Vault controls", k: "test", go: () => { ui = "vault"; } });
@@ -725,7 +733,8 @@ function screenDef() {
       items.push({ label: "Switch detective", go: () => { P = null; ui = "login"; } });
       return {
         html: `<div class="title-screen tight"><div class="logo"><span class="s">WHERE IN THE WORLD IS</span><span class="l">CAMERON</span><span class="l">SANFRANCISCO?</span></div>
-          <div class="sub">Detective ${esc(P.name)} · ${r.name} · ${P.solved} case${P.solved === 1 ? "" : "s"} solved${P.caughtCameron && !P.dev ? " · ★ Hall of Fame" : ""}${jailed().length ? ` · ${jailed().length} in jail` : ""}</div><div style="width:420px">`,
+          <div class="sub">Detective ${esc(P.name)} · ${r.name} · ${P.solved} case${P.solved === 1 ? "" : "s"} solved${(P.hof || P.caughtCameron) && !P.dev ? " · ★ Hall of Fame" : ""}</div>
+          <div class="sub">${P.caughtCameron ? (P.best ? `You caught Cameron in ${P.run} cases` : "You caught Cameron!") : `Case ${(P.run || 0) + 1} of this run`}${P.best ? ` · Record: ${P.best} cases` : ""}${jailed().length ? ` · ${jailed().length} in jail` : ""}</div><div style="width:420px">`,
         tail: `</div></div>`, items,
       };
     }
@@ -834,7 +843,7 @@ function screenDef() {
     case "hof": return {
       back: () => { ui = P ? null : "login"; },
       html: `<div class="view"><div class="place">Hall of Fame</div><div class="sub">Detectives who caught Cameron SanFrancisco.</div>
-        <div class="paper hof">${HOF.length ? HOF.slice().reverse().map(h => `<div><b>★ ${esc(h.name)}</b><span>${esc(h.rank)} · ${h.solved} cases · ${h.date}</span></div>`).join("")
+        <div class="paper hof">${HOF.length ? HOF.slice().reverse().map(h => `<div><b>★ ${esc(h.name)}</b><span>${h.cases ? `caught him in ${h.cases} cases` : `${esc(h.rank)} · ${h.solved} cases`} · ${h.date}</span></div>`).join("")
           : "<p>No one has caught Cameron SanFrancisco yet. Will you be the first?</p>"}</div>`,
       tail: `</div>`,
       items: [{ label: "Back", go: () => { ui = P ? null : "login"; } }],
@@ -1008,7 +1017,7 @@ function screenDef() {
     case "end": {
       const t = thief(), item = esc(S.item || CITIES[S.route[0]].item), Item = item[0].toUpperCase() + item.slice(1);
       const msg = S.escaped ? [`BELLA RUSE ESCAPED!`, `She slipped out of her cell in a guard's uniform. Bella Ruse is on the loose again. At least you got back ${item}!`] : {
-        win: [S.boss ? `HALL OF FAME` : `ARRESTED`, S.boss ? `The hat comes off. It's Cameron SanFrancisco! You caught the leader of ${GANG}${P.dev ? " (Vault detectives stay out of the Hall of Fame.)" : " Your name goes into the Hall of Fame!"}` : `The hat comes off. It's ${t.name}, and your warrant names ${t.sex === "Female" ? "her" : "him"}. Off to jail! You got back ${item}!`],
+        win: [S.boss ? `HALL OF FAME` : `ARRESTED`, S.boss ? `The hat comes off. It's Cameron SanFrancisco! You caught the leader of ${GANG}${P.dev ? " (Vault detectives stay out of the Hall of Fame.)" : " Your name goes into the Hall of Fame!"} You caught him in ${S.runCases} cases. ${S.newBest ? (S.oldBest ? `That's a NEW RECORD! Your old best was ${S.oldBest}.` : "That's your record to beat!") : `Your record is ${P.best}.`}` : `The hat comes off. It's ${t.name}, and your warrant names ${t.sex === "Female" ? "her" : "him"}. Off to jail! You got back ${item}!`],
         wrong: [`WRONG WARRANT`, `The hat comes off. It's ${t.name}, but your warrant names someone else. ${pron()} walks away.`],
         nowarrant: [`NO WARRANT`, `The hat comes off. It's ${t.name}, but you have no warrant. ${pron()} walks away.`],
         time: [`OUT OF TIME`, `It's next Wednesday at 5 PM. ${t.name} got away with ${item}.`],
@@ -1022,7 +1031,7 @@ function screenDef() {
         tail: `</div>`,
         // If you move on before the jail music ends, Bella's escape shows first so it can't be missed.
         items: ((S.examDue ? [{ label: "Take the promotion exam", go: startExam }] : [])
-          .concat([{ label: "Start a new case", go: () => { newCase(); } }, { label: "Title screen", go: () => { S = null; } }]))
+          .concat([S.boss && S.result === "win" ? { label: "Start a new run", k: P.best ? `beat ${P.best}` : "", go: newRun } : { label: "Start a new case", go: () => { newCase(); } }, { label: "Title screen", go: () => { S = null; } }]))
           .map(it => ({ ...it, go: () => bellaPending() ? (bellaBreakout(), "stay") : it.go() })),
       };
     }
