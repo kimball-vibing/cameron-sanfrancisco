@@ -1,0 +1,1123 @@
+<title>Cameron SanFrancisco</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=VT323&display=swap">
+<style>
+/* Layout: one fixed 800x480 handheld screen, scaled to fit, with a short caption under it. Single retro look on purpose. */
+:root {
+  --field: #14245a;      /* EGA-style deep blue, the screen ground */
+  --field-deep: #0b1438; /* page around the screen */
+  --paper: #f3e9d2;      /* passport paper for panels and text */
+  --ink: #1d1a2e;        /* text on paper */
+  --stamp: #c8323c;      /* rubber-stamp red for warrants and alerts */
+  --glow: #f7d046;       /* selection highlight */
+  --dim: #8fa0d6;        /* secondary text on blue */
+  --font-display: "Bungee", "Impact", "Arial Black", sans-serif;
+  --font-body: "VT323", "Courier New", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--field-deep);
+  color: var(--paper);
+  font-family: var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px;
+  box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.wrap { width: 100%; max-width: 800px; aspect-ratio: 800 / 480; position: relative; }
+.stage {
+  position: absolute; left: 0; top: 0; width: 800px; height: 480px;
+  transform-origin: 0 0; overflow: hidden;
+  background: var(--field); border-radius: 6px;
+  box-shadow: 0 0 0 4px #000, 0 0 0 7px #2b3a75;
+  display: grid; grid-template-rows: 44px 1fr 30px;
+  font-size: 26px; line-height: 1.05;
+}
+.stage::after { /* faint scanlines */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.12) 2px 3px);
+}
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; background: var(--paper); color: var(--ink); }
+.bar .brand { font-family: var(--font-display); font-size: 15px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .clock { font-variant-numeric: tabular-nums; font-size: 24px; white-space: nowrap; }
+.bar .clock b { color: var(--stamp); font-weight: normal; }
+.body { padding: 14px 16px; display: grid; gap: 18px; min-height: 0; grid-template-columns: 1fr; }
+.body.art-city { grid-template-columns: 360px 1fr; }
+.body.art-face { grid-template-columns: 320px 1fr; }
+.body.black { background: #000; }
+.foot-r { display: flex; gap: 8px; }
+.foot { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: var(--dim); font-size: 20px; border-top: 2px solid #2b3a75; }
+.back { font: inherit; color: var(--paper); background: none; border: 2px solid var(--dim); padding: 0 10px; cursor: pointer; }
+.back:focus-visible { outline: 2px solid var(--glow); }
+.view { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+canvas { display: block; image-rendering: pixelated; }
+canvas.art { width: 360px; height: 220px; border: 3px solid var(--paper); }
+canvas.face { width: 314px; height: 314px; border: 3px solid var(--paper); }
+.place { font-family: var(--font-display); font-size: 28px; color: var(--glow); line-height: 1; }
+.sub { color: var(--dim); font-size: 22px; }
+.sub.ok { color: var(--glow); }
+.menu { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.menu button {
+  width: 100%; text-align: left; font: inherit; color: var(--paper);
+  background: transparent; border: 2px solid transparent; padding: 5px 12px; cursor: pointer;
+  display: flex; justify-content: space-between; gap: 10px;
+}
+.menu button .k { color: var(--dim); }
+.menu button.sel { background: var(--glow); color: var(--ink); }
+.menu button.sel .k { color: var(--ink); }
+.menu button:focus-visible { border-color: var(--paper); outline: none; }
+.paper { background: var(--paper); color: var(--ink); padding: 12px 14px; font-size: 25px; line-height: 1.1; }
+.paper .who { font-family: var(--font-display); font-size: 14px; letter-spacing: .05em; color: var(--stamp); display: block; margin-bottom: 6px; }
+.title-screen.tight .logo .l { font-size: 44px; }
+.title-screen.tight .menu button { padding: 3px 12px; }
+.namebox { font-family: var(--font-display); font-size: 30px; color: var(--ink); background: var(--paper); min-width: 420px; padding: 6px 12px; text-align: center; }
+.caret { color: var(--stamp); animation: pulse 1s steps(2) infinite; }
+.keys { display: grid; grid-template-columns: repeat(7, 60px); gap: 6px; }
+.key { font: inherit; color: var(--paper); background: #24305a; border: 2px solid #3b4a8a; height: 40px; cursor: pointer; }
+.key.wide { font-size: 20px; }
+.key.sel { background: var(--glow); color: var(--ink); border-color: var(--glow); }
+.hof { display: flex; flex-direction: column; gap: 6px; max-height: 250px; overflow: auto; }
+.hof div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #c9b8a0; }
+.hof span { color: #6a6070; }
+.title-screen { display: grid; place-items: center; text-align: center; gap: 10px; }
+.logo { font-family: var(--font-display); color: var(--glow); text-shadow: 4px 4px 0 var(--stamp); line-height: .95; }
+.logo .s { display: block; font-size: 24px; color: var(--paper); text-shadow: 3px 3px 0 var(--stamp); }
+.logo .l { display: block; font-size: 54px; }
+.stampbox { display: inline-block; align-self: flex-start; border: 3px solid var(--stamp); color: var(--stamp); font-family: var(--font-display); font-size: 18px; padding: 2px 10px; transform: rotate(-4deg); background: var(--paper); }
+.notes { overflow: auto; min-height: 0; flex: 1; font-size: 22px; display: flex; flex-direction: column; gap: 4px; padding-right: 6px; }
+.notes p { margin: 0; }
+.notes .city { color: var(--glow); }
+.interpol { display: grid; grid-template-columns: 330px 1fr; gap: 18px; min-height: 0; }
+.interpol .menu button { padding: 3px 12px; }
+.names { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; align-content: start; font-size: 22px; }
+.names .out { color: #4a5a90; }
+.dossier { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 22px; }
+.dossier div { display: flex; justify-content: space-between; border-bottom: 1px dashed #c9b8a0; }
+.dossier span { color: #6a6070; }
+.dossier p { grid-column: 1 / -1; margin: 6px 0 0; font-size: 23px; }
+.pager { display: flex; gap: 12px; }
+.mugs { display: grid; grid-template-columns: repeat(5, 76px); gap: 6px 8px; align-content: start; }
+.mug { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 17px; text-align: center; line-height: .9; }
+.mug canvas { width: 64px; height: 64px; border: 2px solid var(--paper); }
+.mug.out { opacity: .25; }
+.mug.out canvas { border-color: var(--dim); }
+.mapbox { position: relative; width: 720px; height: 340px; align-self: center; border: 3px solid var(--paper); box-sizing: content-box; }
+.mapbox canvas { width: 720px; height: 340px; }
+.dot { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; padding: 0; border: 3px solid var(--ink); border-radius: 50%; background: var(--stamp); cursor: pointer; }
+.dot.sel { background: var(--glow); outline: 3px solid var(--glow); outline-offset: 2px; animation: pulse .8s steps(2) infinite; }
+.dot:focus-visible { outline: 3px solid var(--paper); }
+.here { position: absolute; margin: -12px 0 0 -8px; font-size: 26px; color: var(--paper); text-shadow: 2px 2px 0 var(--ink); pointer-events: none; }
+.leaders { position: absolute; inset: 0; pointer-events: none; }
+.leaders line { stroke: var(--paper); stroke-width: 2; stroke-dasharray: 3 3; }
+.leaders line.on { stroke: var(--glow); stroke-dasharray: none; }
+.lbl { position: absolute; font-size: 18px; line-height: 22px; height: 22px; color: var(--ink); background: var(--paper); padding: 0 3px; pointer-events: none; white-space: nowrap; }
+.lbl.sel { background: var(--glow); }
+@keyframes pulse { 50% { outline-color: transparent; } }
+.fx { position: absolute; inset: 0; width: 800px; height: 480px; pointer-events: none; z-index: 2; }
+.boom.small { font-size: 24px; line-height: 1.15; }
+.boom { position: absolute; z-index: 3; font-family: var(--font-display); font-size: 40px; color: var(--glow); text-shadow: 3px 3px 0 var(--stamp); pointer-events: none; }
+canvas.street { width: 768px; height: 376px; }
+.slide { display: grid; grid-template-columns: repeat(3, 120px); gap: 4px; margin-top: 8px; }
+.tile { padding: 0; border: 2px solid var(--paper); background: #000; width: 120px; height: 74px; cursor: pointer; }
+.tile canvas { width: 116px; height: 70px; image-rendering: pixelated; display: block; }
+.tile.gap { border-color: transparent; background: none; }
+.key[disabled] { opacity: .3; }
+canvas.puzzle { width: 300px; height: 184px; image-rendering: pixelated; border: 3px solid var(--paper); }
+.spots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 6px; }
+.spot { font: inherit; color: var(--paper); background: none; border: 3px solid transparent; padding: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.spot canvas { width: 216px; height: 180px; border: 3px solid var(--paper); }
+.spot .k { color: var(--dim); font-size: 20px; }
+.spot.sel { border-color: var(--glow); background: rgba(247,208,70,.12); }
+.spot.sel span:first-of-type { color: var(--glow); }
+.spot:focus-visible { outline: 2px solid var(--paper); }
+.jet { position: absolute; font-size: 30px; color: var(--glow); text-shadow: 2px 2px 0 var(--ink); pointer-events: none; transform: translate(-50%,-50%); }
+.caption { max-width: 800px; width: 100%; color: #b9c3e6; font-size: 20px; line-height: 1.2; text-align: center; text-wrap: balance; }
+@media (prefers-reduced-motion: reduce) { .dot.sel { animation: none; } }
+</style>
+
+<div class="wrap" id="wrap"><div class="stage" id="stage" aria-live="polite"></div></div>
+<p class="caption">Preview of the 800×480 handheld screen. Use the arrow keys and Enter (Esc goes back), or click and tap.</p>
+
+<script src="art/landmarks.js"></script>
+<script src="art/people.js"></script>
+<script src="art/sprites.js"></script>
+<script src="clues.js"></script>
+<script src="sound.js"></script>
+<script>
+const AGENCY = "G.L.O.B.E.";
+const AGENCY_LONG = "Gumshoes Looking Over Basically Everything";
+const GANG = "F.A.N.G.";
+
+/* ---------- cities and their 16-clue banks ---------- */
+const CITIES = {
+  paris: { name: "Paris", lat: 48.9, lon: 2.4, sky: "#e7a0a8", ground: "#5a7a4a", item: "the Silver Gargoyle from the cathedral roof", },
+  tokyo: { name: "Tokyo", lat: 35.7, lon: 139.7, sky: "#f2b6c9", ground: "#4a6a5a", item: "a jeweled samurai helmet from the national museum", },
+  cairo: { name: "Cairo", lat: 30.0, lon: 31.2, sky: "#f1c27b", ground: "#d9b46a", item: "a golden scarab from the Egyptian Museum", },
+  rio: { name: "Rio de Janeiro", lat: -22.9, lon: -43.2, sky: "#8fd3c8", ground: "#3a8a5a", item: "the feathered crown of the Carnival queen", },
+  mumbai: { name: "Mumbai", lat: 19.1, lon: 72.9, sky: "#f0a868", ground: "#8a6a3a", item: "a sapphire from the Prince of Wales Museum", },
+  sydney: { name: "Sydney", lat: -33.9, lon: 151.2, sky: "#9cc8f0", ground: "#3a7ab0", item: "the opal baton of the harbour orchestra", },
+  reykjavik: { name: "Reykjavik", lat: 64.1, lon: -21.9, sky: "#a9b8e8", ground: "#4a4a5a", item: "an ancient Viking drinking horn", },
+  mexico: { name: "Mexico City", lat: 19.4, lon: -99.1, sky: "#f5b183", ground: "#8a7a4a", item: "a jade mask from the Museum of Anthropology", },
+  istanbul: { name: "Istanbul", lat: 41.0, lon: 29.0, sky: "#e3b0d9", ground: "#3a6aa0", item: "an emerald dagger from Topkapı Palace", },
+  nairobi: { name: "Nairobi", lat: -1.3, lon: 36.8, sky: "#f3c46b", ground: "#a08a4a", item: "a carved lion from the national gallery", },
+  london: { name: "London", lat: 51.5, lon: -0.1, sky: "#b8c4d6", ground: "#5a6a5a", item: "a ruby from the Crown Jewels display", },
+  newyork: { name: "New York", lat: 40.7, lon: -74.0, sky: "#f0c0a0", ground: "#5a5a6a", item: "a diamond tiara from a Fifth Avenue museum", },
+  beijing: { name: "Beijing", lat: 39.9, lon: 116.4, sky: "#e8b4a0", ground: "#6a7a4a", item: "a bronze dragon from the Forbidden City", },
+  buenosaires: { name: "Buenos Aires", lat: -34.6, lon: -58.4, sky: "#a8d0e8", ground: "#5a8a4a", item: "a silver bandoneón from the tango museum", },
+  rome: { name: "Rome", lat: 41.9, lon: 12.5, sky: "#f0c890", ground: "#7a8a4a", item: "a golden laurel wreath from the Capitoline Museums", },
+  bangkok: { name: "Bangkok", lat: 13.8, lon: 100.5, sky: "#f4b0a0", ground: "#5a8a6a", item: "a gold Buddha leaf from the Grand Palace", },
+};
+const CITY_IDS = Object.keys(CITIES);
+/* Places each city really has: no palace in Reykjavik, no harbor in Mexico City. Three are picked each time you land. */
+const CITY_PLACES = {
+  paris: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station"],
+  tokyo: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station", "harbor"],
+  cairo: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station"],
+  rio: ["bank", "hotel", "sports", "museum", "airport", "library", "market", "harbor"],
+  mumbai: ["bank", "hotel", "sports", "museum", "airport", "library", "market", "station", "harbor"],
+  sydney: ["bank", "hotel", "sports", "museum", "airport", "library", "market", "station", "harbor"],
+  reykjavik: ["bank", "hotel", "sports", "museum", "airport", "library", "market", "harbor"],
+  mexico: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market"],
+  istanbul: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station", "harbor"],
+  nairobi: ["bank", "hotel", "sports", "museum", "airport", "library", "market", "station"],
+  london: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station", "harbor"],
+  newyork: ["bank", "hotel", "sports", "museum", "airport", "library", "market", "station", "harbor"],
+  beijing: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station"],
+  buenosaires: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "harbor"],
+  rome: ["bank", "hotel", "sports", "palace", "museum", "airport", "library", "market", "station"],
+  bangkok: ["bank", "hotel", "sports", "palace", "museum", "airport", "market", "station", "harbor"],
+};
+const rollPlaces = id => shuffle(CITY_PLACES[id] || Object.keys(PLACE_TYPES)).slice(0, 3);
+const PLACE_TYPES = {
+  bank: "Bank", hotel: "Hotel", sports: "Sports club", palace: "Palace", museum: "Museum",
+  airport: "Airport", library: "Library", market: "Market", station: "Train station", harbor: "Harbor",
+};
+/* Who you meet in each region: skin tones (index into SKIN) and hair colors. */
+const REGIONS = {
+  north: { skin: [0, 0, 4, 1], hair: ["Blond", "Brown", "Red", "Blond", "Brown"] },
+  south: { skin: [0, 4, 1, 4], hair: ["Brown", "Black", "Brown", "Black", "Blond"] },
+  mideast: { skin: [1, 4, 2], hair: ["Black", "Black", "Brown"] },
+  africa: { skin: [3, 5, 3, 2], hair: ["Black"] },
+  southasia: { skin: [2, 1, 2, 3], hair: ["Black"] },
+  eastasia: { skin: [4, 0, 4, 1], hair: ["Black", "Black", "Brown"] },
+  latin: { skin: [1, 2, 4, 3, 0], hair: ["Black", "Brown", "Black", "Blond"] },
+  mixed: { skin: [0, 1, 2, 3, 4], hair: ["Black", "Brown", "Blond", "Red"] },
+};
+const REGION_OF = { paris: "south", rome: "south", istanbul: "mideast", london: "north", reykjavik: "north", cairo: "mideast",
+  nairobi: "africa", mumbai: "southasia", tokyo: "eastasia", beijing: "eastasia", bangkok: "eastasia",
+  rio: "latin", mexico: "latin", buenosaires: "latin", sydney: "mixed", newyork: "mixed" };
+const NOT_SEEN = ["Sorry, detective. I haven't seen anyone like that around here.", "Nobody like that has come through here.",
+  "I've been here all day and seen no one suspicious.", "Never seen them. Are you sure you're in the right city?"];
+const CLOSE = ["Watch your step, detective. Someone dangerous was here a moment ago.", "A shady character in a trench coat just ran past. You're getting close!",
+  "I'd be careful if I were you. You're very close now.", "Someone was asking whether a detective was in town. You're getting close!"];
+
+/* ---------- suspects ---------- */
+const TRAITS = {
+  sex: { label: "Sex", values: ["Female", "Male"] },
+  hair: { label: "Hair", values: ["Black", "Brown", "Red", "Blond"] },
+  hobby: { label: "Hobby", values: ["Chess", "Opera", "Tennis", "Climbing"] },
+  feature: { label: "Feature", values: ["Jewelry", "Scar", "Tattoo", "Limp"] },
+  vehicle: { label: "Vehicle", values: ["Convertible", "Motorcycle", "Limousine"] },
+};
+const SUSPECTS = [
+  { id: "penny",   name: "Penny Pincher",        sex: "Female", hair: "Red",   hobby: "Chess",    feature: "Jewelry", vehicle: "Motorcycle",  skin: "#f1c9a5",
+    bio: "Has never paid for anything, including this dossier." },
+  { id: "anita",   name: "Anita Getaway",        sex: "Female", hair: "Black", hobby: "Opera",    feature: "Jewelry", vehicle: "Convertible", skin: "#a86e4a",
+    bio: "Sings an aria every time she escapes. She sings a lot." },
+  { id: "polly",   name: "Sue Veneer",          sex: "Female", hair: "Blond", hobby: "Tennis",   feature: "Tattoo",  vehicle: "Limousine",   skin: "#e8b98f",
+    bio: "Takes a souvenir from every city she visits. Usually a famous one." },
+  { id: "lotta",   name: "Lotta Loot",           sex: "Female", hair: "Black", hobby: "Chess",    feature: "Scar",    vehicle: "Limousine",   skin: "#d9a47c",
+    bio: "Always three moves ahead. Sometimes four. Never five." },
+  { id: "ima",     name: "Ima Sneak",            sex: "Female", hair: "Brown", hobby: "Opera",    feature: "Tattoo",  vehicle: "Motorcycle",  skin: "#7a4a2e",
+    bio: "So quiet that libraries ask her to speak up." },
+  { id: "kitty",   name: "Kitty Pawsworth",      sex: "Female", hair: "Black", hobby: "Climbing", feature: "Limp",    vehicle: "Convertible", skin: "#e8b98f",
+    bio: "Cat burglar. Landed on her feet 8 times. The 9th was the limp." },
+  { id: "candy",   name: "Goldie Lox",           sex: "Female", hair: "Blond", hobby: "Opera",    feature: "Scar",    vehicle: "Convertible", skin: "#f1c9a5",
+    bio: "Tries every vault in town until she finds one that's just right." },
+  { id: "bella",   name: "Bella Ruse",           sex: "Female", hair: "Brown", hobby: "Tennis",   feature: "Jewelry", vehicle: "Limousine",   skin: "#5a3520",
+    bio: "Master of disguise. This may not even be her photo." },
+  { id: "hugh",    name: "Hugh Dunnit",          sex: "Male",   hair: "Black", hobby: "Chess",    feature: "Scar",    vehicle: "Convertible", skin: "#d9a47c",
+    bio: "Answers every question with 'Who, me?'" },
+  { id: "rob",     name: "Rob M. Blind",         sex: "Male",   hair: "Red",   hobby: "Tennis",   feature: "Limp",    vehicle: "Motorcycle",  skin: "#f1c9a5",
+    bio: "Robs museums in broad daylight. Nobody ever sees him coming." },
+  { id: "reggie",  name: "Sir Reginald Pilfer",  sex: "Male",   hair: "Brown", hobby: "Climbing", feature: "Jewelry", vehicle: "Limousine",   skin: "#e8b98f",
+    bio: "Claims to be a knight. The armor was stolen." },
+  { id: "cash",    name: "Cash McGrab",          sex: "Male",   hair: "Black", hobby: "Opera",    feature: "Tattoo",  vehicle: "Motorcycle",  skin: "#7a4a2e",
+    bio: "His tattoo says MOM. His mom says she has never met him." },
+  { id: "justin",  name: "Justin Thyme",         sex: "Male",   hair: "Blond", hobby: "Chess",    feature: "Limp",    vehicle: "Limousine",   skin: "#f1c9a5",
+    bio: "Always escapes at the last second. Owns 40 stolen watches." },
+  { id: "barry",   name: "Barry D. Treasure",    sex: "Male",   hair: "Brown", hobby: "Opera",    feature: "Scar",    vehicle: "Motorcycle",  skin: "#a86e4a",
+    bio: "Buries everything he steals and forgets where." },
+  { id: "fitz",    name: "Phil Mypockets",       sex: "Male",   hair: "Red",   hobby: "Climbing", feature: "Tattoo",  vehicle: "Convertible", skin: "#e8b98f",
+    bio: "Can't shake hands without taking your watch. And your hand." },
+  { id: "cameron", name: "Cameron SanFrancisco",  sex: "Male",   hair: "Brown",   hobby: "Opera",    feature: "Jewelry", vehicle: "Motorcycle",  skin: "#e8b98f",
+    bio: "Leader of F.A.N.G. Has never been caught. Wears the red trench coat his grandma gave him and rides a vintage motorcycle." },
+  { id: "count",   name: "Count Swindleton",     sex: "Male",   hair: "Black", hobby: "Tennis",   feature: "Jewelry", vehicle: "Convertible", skin: "#d9a47c",
+    bio: "Not a real count. Can barely count. Counts loot anyway." },
+];
+const TRAIT_SENTENCE = {
+  hair: v => `had ${v.toLowerCase()} hair.`,
+  hobby: v => ({ Chess: "kept talking about a chess tournament.", Opera: "was humming opera the whole time.",
+                 Tennis: "was carrying a tennis racket.", Climbing: "had climbing rope in a backpack." })[v],
+  feature: v => ({ Jewelry: "was wearing a lot of flashy jewelry.", Scar: "had a scar across one cheek.",
+                   Tattoo: "had a tattoo of an anchor on one arm.", Limp: "walked with a limp and a cane." })[v],
+  vehicle: v => `asked where to rent a ${v.toLowerCase()}.`,
+};
+
+const RANKS = [
+  { name: "Rookie", at: 0, cities: 4 },
+  { name: "Sleuth", at: 1, cities: 5 },
+  { name: "Private Eye", at: 5, cities: 6 },
+  { name: "Investigator", at: 11, cities: 7 },
+  { name: "Ace Detective", at: 19, cities: 8 },
+];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "next Mon", "next Tue", "next Wed", "next Thu"];
+const START_T = 9, DEADLINE_T = 9 * 24 + 17; // Monday 9 AM to next Wednesday 5 PM
+const NOTES_H = 1;
+
+/* World land mask: 180x85 cells of 2 degrees, latitude 80N to 90S. */
+const MASK = "AAAAAAI3//////AAH+AAAAAHwAAAAAAAAAABJLPh////AABgAAAQAAbAAAAAAAAAAA+K/AB///gAAAAAOAA//gAcAAAAAAAP7ffwA///AAAAAAQEP///4OAACAHAAJfDf/A//+AAABAAQP///////ACB/////F2PAf/8AAAf+AL//////////w//////2H4f+AAAB//v//////////+z//////2XgPwB4AD79///////////8I//////GBwHgAgAPn////////////8B/////+AeADAAAA/n//////////8/AAeA///+AfQAAAAAfj//////////IwAAJAP///wf8AAAAYLn/////////wDwAAAAF///+/+AAAA4Mv/////////ADgAAAAB///+//AAABuf//////////4DAAAAAA//////AAAAN///////////0CAAAAAAP////5gAAAP///////////0AAAAAAAP////wAAAAH///////////kAAAAAAAP////4AAAAH9/p////////AAAAAAAAP///+AAAAA/m/A///////+EAAAAAAAP///8AAAAB+Jvf///////4IAAAAAAAP///4AAAAB8It///////4wIAAAAAAAH///wAAAAA54E///////+Y4AAAAAAAH///wAAAAAf4AD//////8TwAAAAAAAB///AAAAAA/+AH//////+GAAAAAAAAA///AAAAAB//v///////+AAAAAAAAAAf+DAAAAAB////9/////+AAAAAAAAAAf8BAAAAAH///7+f////8AAAAAAAAAAL4AAAAAAP////+T////8AAAAAAAAAAB4BgAAAAP///9/8P///yAAAAAAAAAAB4QQAAAAP///+/8H/P9AAAAAAAAAAAA8wHAAAAP///+/4D8H6AAAAAAAAAAAAPwAAAAAP////fgD4H8CAAAAAAAAAAAA8AAAAAf////fABwB+CAAAAAAAAAAAAcAAAAAf////4ABwB+BAAAAAAAAAAAAENgAAAP////3AAwBMBgAAAAAAAAAAADf8AAAH////+AAoBAAgAAAAAAAAAAAAf+AAAD////+AAIAgIgAAAAAAAAAAAAf/wAAB8f//8AAACwcAAAAAAAAAAAAAf/4AAAAH//4AAABQ4AAAAAAAAAAAAA//4AAAAH//wAAABz5IAAAAAAAAAAAA//+AAAAP//gAAAAx6SAAAAAAAAAAAA///wAAAH//AAAAAZ2B8AAAAAAAAAAB///8AAAD//AAAAAIAA+QAAAAAAAAAA///+AAAD//AAAAAHAAfAAAAAAAAAAAf//8AAAD//AAAAAANAJAAAAAAAAAAAf//8AAAB//AAAAAAAAAAAAAAAAAAAAP//4AAAD//CAAAAAAHEAAAAAAAAAAAP//4AAAD//iAAAAAA/GAAAAAAAAAAAD//4AAAD//OAAAAAB/+AAAAAAAAAAAB//wAAAD/8OAAAAAB//AAAAAAAAAAAB//wAAAB/8MAAAAAP//gIAAAAAAAAAB//gAAAB/8MAAAAAf//gAAAAAAAAAAD/8AAAAB/4IAAAAAf//wAAAAAAAAAAD/8AAAAB/4AAAAAAf//4AAAAAAAAAAD/4AAAAA/wAAAAAAf//4AAAAAAAAAAD/4AAAAAfgAAAAAAP//4AAAAAAAAAAD/wAAAAAfAAAAAAAPh/wAAAAAAAAAAD/gAAAAAAAAAAAAAIAfgAAAAAAAAAAH/AAAAAAAAAAAAAAAAPgAQAAAAAAAAH+AAAAAAAAAAAAAAAAAAAYAAAAAAAAH4AAAAAAAAAAAAAAAABAAwAAAAAAAAHwAAAAAAAAAAAAAAAABABgAAAAAAAAPgAAAAAAAAAAAAAAAAAADAAAAAAAAAHgAAAAAAAAAAAAAAAAAACAAAAAAAAAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHCAAAAAAAAAAAAAAAAAAAAAAAAAAAAHAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAF8AD////8AAAAAAAAAAAC4AAAAAAAA//4//////+AAAAAAAAAAH4AAAC7/////7///////+AAAAAAAP434AAAP//////////////8AAAA//////4AAAf//////////////4AAHP/////+AAB////////////////0AAx//////yAHD////////////////4AAB///////gef////////////////gAAH///////////////////////////D/////////////////////////////////////////////////////////////////////////////////////////8=";
+
+/* Geography trivia for promotion exams. The first option is always the right one; options are shuffled on screen. */
+const TRIVIA = [
+  ["Which river flows through Cairo?", ["The Nile", "The Congo", "The Tigris", "The Niger"]],
+  ["Which is the longest mountain range in the world above sea level?", ["The Andes", "The Alps", "The Rockies", "The Urals"]],
+  ["What is the capital of Australia?", ["Canberra", "Sydney", "Melbourne", "Perth"]],
+  ["Which country has the most people in the world?", ["India", "China", "United States", "Indonesia"]],
+  ["Which ocean lies between Africa and Australia?", ["Indian Ocean", "Atlantic Ocean", "Pacific Ocean", "Southern Ocean"]],
+  ["Which strait separates Europe from Asia in Istanbul?", ["The Bosphorus", "The Strait of Gibraltar", "The Strait of Hormuz", "The Bering Strait"]],
+  ["What is the largest desert in Africa?", ["The Sahara", "The Kalahari", "The Namib", "The Gobi"]],
+  ["Which country is home to Mount Kilimanjaro?", ["Tanzania", "Kenya", "Ethiopia", "Uganda"]],
+  ["Which line of latitude passes through Kenya, Brazil and Indonesia?", ["The Equator", "The Tropic of Cancer", "The Arctic Circle", "The Prime Meridian"]],
+  ["What is the capital of Canada?", ["Ottawa", "Toronto", "Vancouver", "Montreal"]],
+  ["Which country is shaped like a boot?", ["Italy", "Greece", "Spain", "Portugal"]],
+  ["Which river forms much of the border between the United States and Mexico?", ["The Rio Grande", "The Colorado", "The Mississippi", "The Amazon"]],
+  ["Iceland sits on top of which tectonic feature?", ["The Mid-Atlantic Ridge", "The Ring of Fire", "The Great Rift Valley", "The Himalayan fault"]],
+  ["What is the largest country in South America?", ["Brazil", "Argentina", "Peru", "Colombia"]],
+  ["Which sea lies to the north of Türkiye?", ["The Black Sea", "The Red Sea", "The Caspian Sea", "The Dead Sea"]],
+  ["The Yangtze is the longest river in which country?", ["China", "Japan", "Vietnam", "Mongolia"]],
+  ["Which country is made up of the islands Honshu, Hokkaido, Kyushu and Shikoku?", ["Japan", "Philippines", "Indonesia", "New Zealand"]],
+  ["What is the tallest mountain in the world?", ["Mount Everest", "K2", "Kilimanjaro", "Aconcagua"]],
+  ["Which body of water separates England from France?", ["The English Channel", "The North Sea", "The Irish Sea", "The Bay of Biscay"]],
+  ["Which country has the city of Timbuktu?", ["Mali", "Morocco", "Niger", "Chad"]],
+  ["What is the capital of Thailand?", ["Bangkok", "Chiang Mai", "Phuket", "Hanoi"]],
+  ["Which is the largest ocean?", ["The Pacific", "The Atlantic", "The Indian", "The Arctic"]],
+  ["Buenos Aires sits on the shore of which estuary?", ["The Río de la Plata", "The Amazon delta", "The Orinoco", "The Gulf of Mexico"]],
+  ["Which continent has the most countries?", ["Africa", "Asia", "Europe", "South America"]],
+  ["Which mountain range separates India from Tibet?", ["The Himalayas", "The Andes", "The Alps", "The Atlas"]],
+  ["What is the capital of Egypt?", ["Cairo", "Alexandria", "Luxor", "Giza"]],
+  ["Which country has both a Pacific and a Caribbean coast?", ["Mexico", "Argentina", "Chile", "Peru"]],
+  ["Which is the smallest country in the world?", ["Vatican City", "Monaco", "San Marino", "Liechtenstein"]],
+  ["What is the longest river in South America?", ["The Amazon", "The Paraná", "The Orinoco", "The Magdalena"]],
+  ["Which country's flag has a red maple leaf?", ["Canada", "Japan", "Switzerland", "Peru"]],
+  ["Which country is entirely surrounded by South Africa?", ["Lesotho", "Eswatini", "Botswana", "Namibia"]],
+  ["Which city is closest to the Arctic Circle?", ["Reykjavik", "London", "Paris", "Rome"]],
+].map(([q, opts]) => ({ q, opts, a: 0 }));
+
+/* ---------- helpers ---------- */
+const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fmtTime = t => { const h = t % 24; const h12 = h % 12 === 0 ? 12 : h % 12; return `${DAYS[Math.floor(t / 24)]} ${h12}:00 ${h < 12 ? "AM" : "PM"}`; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hash = s => [...String(s)].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
+const seeded = seed => { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+function flightHours(a, b) {
+  const A = CITIES[a], B = CITIES[b], r = Math.PI / 180;
+  const d = 2 * 6371 * Math.asin(Math.sqrt(Math.sin((B.lat - A.lat) * r / 2) ** 2 +
+    Math.cos(A.lat * r) * Math.cos(B.lat * r) * Math.sin((B.lon - A.lon) * r / 2) ** 2));
+  return Math.max(2, Math.min(12, Math.round(d / 850) + 1));
+}
+
+/* ---------- state ---------- */
+let S = null;      // current case
+/* Detectives on this device, keyed by lower-case name. P is the signed-in detective (null until someone signs in). */
+let PROFILES = store.get("csf-profiles") || {};
+let P = null, ui = "login", nameBuf = "";
+let HOF = store.get("csf-hof") || [];
+function saveProfile() { if (P) { PROFILES[P.name.toLowerCase()] = P; store.set("csf-profiles", PROFILES); } }
+function signIn(name) {
+  const key = name.trim().toLowerCase();
+  P = PROFILES[key] || (PROFILES[key] = { name: name.trim(), solved: 0, rank: 0, created: Date.now() });
+  P.last = Date.now(); saveProfile(); SFX.muted = !!P.mute; ui = null; S = null;
+}
+let sel = 0;       // highlighted menu row
+let flash = "";    // one-time message under the menu
+
+const rankIdx = () => P.rank || 0;
+const rankOf = () => RANKS[rankIdx()];
+const examDue = () => rankIdx() < RANKS.length - 1 && P.solved >= RANKS[rankIdx() + 1].at;
+const thief = () => SUSPECTS.find(s => s.id === S.thief);
+const pron = () => thief().sex === "Female" ? "She" : "He";
+
+/* Three witness clues per city about the NEXT city. Higher ranks get more hard clues,
+   and more often two witnesses repeat the same thing. */
+function pickClues(route, ri) {
+  const hardShare = [0.15, 0.35, 0.55, 0.75, 0.9][ri], dup = [0.15, 0.25, 0.35, 0.45, 0.55][ri];
+  return route.map((_, i) => {
+    if (i === route.length - 1) return null;
+    const bank = window.CLUE_BANK[route[i + 1]], easy = shuffle(bank.easy), hard = shuffle(bank.hard);
+    const three = [0, 1, 2].map(() => (Math.random() < hardShare ? hard : easy).pop());
+    if (Math.random() < dup) { const a = rint(0, 2), b = (a + rint(1, 2)) % 3; three[b] = three[a]; }
+    return three;
+  });
+}
+
+/* After 3 cases as an Ace Detective, the next case is Cameron SanFrancisco himself. */
+const bossDue = () => rankIdx() === RANKS.length - 1 && P.solved >= RANKS[RANKS.length - 1].at + 3 && !P.caughtCameron;
+function newCase() {
+  const ri = rankIdx(), rank = RANKS[ri], boss = bossDue();
+  const route = shuffle(CITY_IDS).slice(0, boss ? 9 : rank.cities);
+  const t = boss ? SUSPECTS.find(x => x.id === "cameron") : pick(SUSPECTS.filter(x => x.id !== "cameron"));
+  // Pick trait clues until they (plus the sex) point to exactly one suspect.
+  let pool = SUSPECTS.filter(s => s.sex === t.sex);
+  const traits = [];
+  for (const k of shuffle(["hair", "hobby", "feature", "vehicle"])) {
+    if (pool.length === 1 && traits.length >= 2) break;
+    traits.push(k); pool = pool.filter(s => s[k] === t[k]);
+  }
+  // Trait clues go in the cities before the last one, at different places.
+  const n = route.length - 1, traitAt = {};
+  const slots = shuffle([...Array(n).keys()]);
+  traits.forEach((k, j) => {
+    const ci = slots[j % n];
+    const used = (traitAt[ci] ||= []).map(x => x.place);
+    traitAt[ci].push({ k, place: shuffle([0, 1, 2].filter(p => !used.includes(p)))[0] });
+  });
+  S = {
+    screen: "brief", boss, thief: t.id, route, city: route[0], cameFrom: null, rank: rank.name, names: ri < 2,
+    time: START_T, bedtimes: Array.from({ length: 11 }, () => rint(21, 24)),
+    traitAt, clues: pickClues(route, ri),
+    flyOptions: {}, visited: {}, places: Object.fromEntries(CITY_IDS.map(c => [c, rollPlaces(c)])),
+    interpol: { sex: null, hair: null, hobby: null, feature: null, vehicle: null },
+    warrant: null, notes: [], finalVisits: 0, witness: null, flyTo: null, result: null, slept: false, henchman: false,
+  };
+}
+
+/* Spend hours. Passing tonight's bedtime means sleeping until 9 AM. */
+function advance(hours) {
+  const day = Math.floor(S.time / 24);
+  S.time += hours; S.slept = false;
+  if (S.time >= day * 24 + S.bedtimes[day]) { S.time = (day + 1) * 24 + 9; S.slept = true; }
+  if (S.time >= DEADLINE_T) { end("time"); return false; }
+  return true;
+}
+
+function end(why) {
+  if (why === "caught") why = S.warrant === S.thief ? "win" : (S.warrant ? "wrong" : "nowarrant");
+  S.result = why; S.screen = "end";
+  if (why === "win") {
+    P.solved++; S.examDue = !S.boss && examDue();
+    if (S.boss) { P.caughtCameron = (P.caughtCameron || 0) + 1; HOF.push({ name: P.name, date: new Date().toISOString().slice(0, 10), solved: P.solved, rank: rankOf().name }); store.set("csf-hof", HOF); }
+  }
+  delete P.save; saveProfile();
+}
+
+function flyOptions(id) {
+  if (S.flyOptions[id]) return S.flyOptions[id];
+  const i = S.route.indexOf(id);
+  const next = (i >= 0 && i < S.route.length - 1) ? S.route[i + 1] : null;
+  const keep = [next, S.cameFrom].filter(Boolean);
+  const others = shuffle(CITY_IDS.filter(c => c !== id && !keep.includes(c)));
+  return (S.flyOptions[id] = shuffle([...keep, ...others.slice(0, 5 - keep.length)]));
+}
+
+function investigate(p) {
+  const id = S.city, i = S.route.indexOf(id), Pn = pron();
+  if (!advance(rint(1, 3))) return;
+  const visited = (S.visited[id] ||= [false, false, false]);
+  const isFinal = i === S.route.length - 1;
+  const ptype = S.places[id][p], place = PLACE_TYPES[ptype];
+  let text, danger = null;
+  if (i === -1) text = NOT_SEEN[hash(id + p) % NOT_SEEN.length];
+  else if (isFinal) {
+    S.finalVisits++;
+    if (S.finalVisits >= 2) { S.screen = "chase"; return; }
+    text = pick(CLOSE); danger = pick(["knife", "gun"]);
+  } else {
+    text = `${Pn} ${S.clues[i][p]}`;
+    for (const tr of S.traitAt[i] || []) if (tr.place === p) text += ` Also, ${Pn.toLowerCase()} ${TRAIT_SENTENCE[tr.k](thief()[tr.k])}`;
+  }
+  if (isFinal || !S.notes.some(n => n.text === text)) S.notes.push({ city: CITIES[id].name, place, text });
+  visited[p] = true;
+  S.witness = { place, ptype, text, seed: hash(id + p + S.thief), danger };
+  S.screen = danger ? "danger" : "witness";
+}
+
+const matching = () => SUSPECTS.filter(s => Object.entries(S.interpol).every(([k, v]) => !v || s[k] === v));
+function updateWarrant() { const m = matching(); S.warrant = m.length === 1 ? m[0].id : null; }
+
+/* ---------- pixel drawing kit ---------- */
+function kit(g) {
+  const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  // Filled trapezoid between a top edge (y0, xl0..xr0) and a bottom edge (y1, xl1..xr1).
+  const trap = (xl0, xr0, y0, xl1, xr1, y1, c) => {
+    g.fillStyle = c;
+    for (let y = y0; y <= y1; y++) { const f = y1 === y0 ? 0 : (y - y0) / (y1 - y0);
+      const a = Math.round(xl0 + (xl1 - xl0) * f), b = Math.round(xr0 + (xr1 - xr0) * f); g.fillRect(a, y, b - a + 1, 1); }
+  };
+  const oval = (cx, cy, rx, ry, c, yMax = 1e9) => {
+    g.fillStyle = c;
+    for (let y = -ry; y <= ry; y++) { if (cy + y > yMax) break; const w = Math.round(rx * Math.sqrt(1 - (y / (ry + .5)) ** 2)); g.fillRect(cx - w, cy + y, w * 2 + 1, 1); }
+  };
+  return { R, trap, oval };
+}
+
+/* ---------- art: drawn by art/landmarks.js, art/people.js and art/sprites.js ---------- */
+const INK = "#1d1a2e", WHITE = "#f3e9d2", GOLD = "#f7d046", RED = "#c8323c";
+const HAIR = { Black: "#1d1a2e", Brown: "#6b4226", Red: "#b4462b", Blond: "#e8c15a" };
+const SKIN = ["#f1c9a5", "#d9a47c", "#a86e4a", "#7a4a2e", "#e8b98f", "#5a3520"];
+const facePerson = s => ({ ...s, seed: hash(s.id), style: "suspect" });
+
+/* ---------- world map ---------- */
+let maskBits = null;
+function drawMap(cv) {
+  if (!maskBits) { const raw = atob(MASK); maskBits = new Uint8Array(raw.length * 8);
+    for (let i = 0; i < raw.length; i++) for (let b = 0; b < 8; b++) maskBits[i * 8 + b] = (raw.charCodeAt(i) >> (7 - b)) & 1; }
+  const g = cv.getContext("2d"), off = maskBits.length - 180 * 85;
+  g.fillStyle = "#1e3a7a"; g.fillRect(0, 0, 180, 85);
+  g.fillStyle = "#24448a"; for (let x = 0; x < 180; x += 15) g.fillRect(x, 0, 1, 85); for (let y = 5; y < 85; y += 15) g.fillRect(0, y, 180, 1);
+  for (let i = 0; i < 180 * 85; i++) if (maskBits[off + i]) { g.fillStyle = (i / 180 | 0) % 2 ? "#6a9a4a" : "#74a452"; g.fillRect(i % 180, i / 180 | 0, 1, 1); }
+}
+const mapXY = id => ({ x: (CITIES[id].lon + 180) / 2 * 4, y: (80 - CITIES[id].lat) / 2 * 4 });
+/* Place each label near its dot without overlapping other labels or dots; a line joins label and dot. */
+function placeLabels(ids, texts) {
+  const boxes = [], dots = ids.map(mapXY), out = [];
+  const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  ids.forEach((id, i) => {
+    const p = dots[i], w = texts[i].length * 9 + 10, h = 22;
+    let best = null;
+    for (const r of [26, 44, 64, 86]) for (let k = 0; k < 12; k++) {
+      const a = k * Math.PI / 6 - Math.PI / 4, cx = p.x + Math.cos(a) * r, cy = p.y + Math.sin(a) * r;
+      const b = { x: cx - w / 2, y: cy - h / 2, w, h };
+      if (b.x < 2 || b.y < 2 || b.x + w > 718 || b.y + h > 338) continue;
+      if (boxes.some(o => hit(b, o)) || dots.some(d => hit(b, { x: d.x - 12, y: d.y - 12, w: 24, h: 24 }))) continue;
+      best = b; break;
+    }
+    best ||= { x: Math.min(718 - w, Math.max(2, p.x + 14)), y: Math.min(316, Math.max(2, p.y + 14)), w, h };
+    boxes.push(best); out.push({ ...best, px: p.x, py: p.y });
+  });
+  return out;
+}
+
+/* ---------- screens ---------- */
+function menuHTML(items) {
+  return `<ul class="menu">${items.map((it, i) =>
+    `<li><button type="button" id="m${i}" class="${i === sel ? "sel" : ""}" data-i="${i}"><span>${it.label}</span>${it.k ? `<span class="k">${it.k}</span>` : ""}</button></li>`).join("")}</ul>`;
+}
+
+function screenDef() {
+  const c = S && CITIES[S.city];
+  const screen = S ? S.screen : ui || (P.howto ? "howto" : "title");
+  switch (screen) {
+    case "title": {
+      const saved = P.save, r = rankOf();
+      const items = [];
+      if (saved && saved.clues) items.push({ label: "Continue saved game", k: fmtTime(saved.time), go: () => { S = saved; S.screen = "city"; } });
+      items.push({ label: "Start a new case", go: () => { newCase(); } });
+      items.push({ label: "Dossiers", go: () => { S = { screen: "dossiers" }; } });
+      items.push({ label: "Hall of Fame", go: () => { ui = "hof"; } });
+      items.push({ label: "How to play", go: () => { P.howto = true; } });
+      items.push({ label: "Switch detective", go: () => { P = null; ui = "login"; } });
+      return {
+        html: `<div class="title-screen tight"><div class="logo"><span class="s">WHERE IN THE WORLD IS</span><span class="l">CAMERON</span><span class="l">SANFRANCISCO?</span></div>
+          <div class="sub">Detective ${esc(P.name)} · ${r.name} · ${P.solved} case${P.solved === 1 ? "" : "s"} solved${P.caughtCameron ? " · ★ Hall of Fame" : ""}</div><div style="width:420px">`,
+        tail: `</div></div>`, items,
+      };
+    }
+    case "login": {
+      const list = Object.values(PROFILES).sort((a, b) => (b.last || 0) - (a.last || 0)).slice(0, 5);
+      return {
+        html: `<div class="title-screen tight"><div class="logo"><span class="s">${AGENCY} DETECTIVE SIGN-IN</span></div>
+          <div class="sub">${list.length ? "Pick your detective, or sign in with a new name." : "Welcome! Type your name to sign in."}</div><div style="width:420px">`,
+        tail: `</div></div>`,
+        items: list.map(p => ({ label: esc(p.name), k: RANKS[p.rank || 0].name, go: () => signIn(p.name) }))
+          .concat([{ label: "Type my name", go: () => { ui = "name"; nameBuf = ""; } }, { label: "Hall of Fame", go: () => { ui = "hof"; } }]),
+      };
+    }
+    case "name": return {
+      noMenu: true, back: () => { ui = "login"; },
+      html: `<div class="view" style="align-items:center"><div class="sub">Type your name with the keyboard, or pick letters below.</div>
+        <div class="namebox">${esc(nameBuf) || "&nbsp;"}<span class="caret">_</span></div>
+        <div class="keys">${KEYS.map((k, i) => `<button type="button" class="key ${i === sel ? "sel" : ""} ${k.length > 1 ? "wide" : ""}" data-i="${i}">${k === " " ? "SPACE" : k}</button>`).join("")}</div>`,
+      tail: `</div>`,
+      items: KEYS.map(k => ({ label: "", go: () => typeKey(k) === "in" ? undefined : "stay" })),
+    };
+    case "hof": return {
+      back: () => { ui = P ? null : "login"; },
+      html: `<div class="view"><div class="place">Hall of Fame</div><div class="sub">Detectives who caught Cameron SanFrancisco.</div>
+        <div class="paper hof">${HOF.length ? HOF.slice().reverse().map(h => `<div><b>★ ${esc(h.name)}</b><span>${esc(h.rank)} · ${h.solved} cases · ${h.date}</span></div>`).join("")
+          : "<p>No one has caught Cameron SanFrancisco yet. Will you be the first?</p>"}</div>`,
+      tail: `</div>`,
+      items: [{ label: "Back", go: () => { ui = P ? null : "login"; } }],
+    };
+    case "howto": return {
+      back: () => { P.howto = false; },
+      html: `<div class="view"><div class="place">How to play</div><div class="paper">
+        Ask around at places in each city. Witnesses tell you where the thief flew next and what the thief looks like.
+        Find that place on the map and fly there. When a ${GANG} henchman crosses your path, you're on the right trail.
+        Enter what you learn into Interpol to get a warrant, and catch the thief by next Wednesday at 5 PM.</div>`,
+      tail: `</div>`,
+      items: [{ label: "Got it", go: () => { P.howto = false; } }],
+    };
+    case "brief": return {
+      html: `<div class="view"><span class="stampbox">CASE FILE · ${esc(S.rank.toUpperCase())}</span><div class="paper"><span class="who">Chief of ${AGENCY} (${AGENCY_LONG})</span>
+        ${S.boss ? `Detective, this is the big one. Cameron SanFrancisco himself stole ${esc(c.item)} in ${c.name}. Catch him and you'll join the Hall of Fame.`
+          : `Detective, ${esc(c.item)} was stolen in ${c.name} this morning. A ${GANG} agent did it, working for Cameron SanFrancisco.`}
+        Track the thief, get a warrant, and make the arrest by <b>next Wednesday at 5 PM</b>.</div>`,
+      tail: `</div>`,
+      items: [{ label: `Go to ${c.name}`, go: () => { S.screen = "city"; } }],
+    };
+    case "city": return {
+      art: "city", onShow: S.henchman ? () => { S.henchman = false; playFx("henchman"); } : null,
+      html: `<div class="view"><div class="sub">${S.waited ? "You waited overnight for the morning flight." : S.slept ? "You slept at a hotel and woke at 9 AM." : "What's your next move?"}</div>`,
+      tail: `</div>`,
+      items: [
+        { label: "Investigate", go: () => { S.screen = "inv"; } },
+        { label: "Fly", go: () => { S.screen = "fly"; } },
+        { label: "Interpol", k: S.warrant ? "warrant ✓" : "", go: () => { S.screen = "interpol"; } },
+        { label: "Dossiers", go: () => { S.screen = "dossiers"; } },
+        { label: "Case notes", k: `${NOTES_H} hr`, go: () => { if (advance(NOTES_H)) S.screen = "notes"; } },
+        { label: "Hint", k: S.hints && S.hints[S.city] ? "solved" : `${HINT_H} hr`, go: startHint },
+        { label: "Save game", go: () => { goHome(); flash = `Game saved for ${esc(P.name)}.`; } },
+      ],
+    };
+    case "inv": {
+      const v = S.visited[S.city] || [];
+      return {
+        back: () => { S.screen = "city"; }, noMenu: true,
+        html: `<div class="view"><div class="sub">Where do you want to ask around in ${c.name}? Each stop takes 1 to 3 hours.</div><div class="spots">${S.places[S.city].map((t, i) =>
+          `<button type="button" class="spot ${i === sel ? "sel" : ""}" data-i="${i}"><canvas width="120" height="100" data-bldg="${t}"></canvas><span>${PLACE_TYPES[t]}</span><span class="k">${v[i] ? "visited" : "&nbsp;"}</span></button>`).join("")}</div>`,
+        tail: `</div>`,
+        items: S.places[S.city].map((t, i) => ({ label: "", go: () => { S.walkTo = i; S.screen = "walk"; } })),
+      };
+    }
+    case "danger": return {
+      noMenu: true, black: true, html: "", items: [{ label: "", go: endDanger }],
+      onShow: () => playFx(S.witness.danger, endDanger),
+    };
+    case "walk": return {
+      noMenu: true, html: `<canvas class="street" id="street" width="384" height="188"></canvas>`, items: [{ label: "", go: finishWalk }], onShow: startWalk,
+    };
+    case "witness": return {
+      art: "witness", back: () => { S.screen = "inv"; },
+      onShow: () => SFX.mumble(2.6, witnessPerson(S.witness.seed, S.city, S.witness.ptype).sex === "Female"),
+      html: `<div class="view"><div class="paper"><span class="who">Witness at ${esc(S.witness.place)}</span>${esc(S.witness.text)}</div>${S.slept ? `<div class="sub">You slept at a hotel and woke at 9 AM.</div>` : ""}`,
+      tail: `</div>`,
+      items: [{ label: "Continue", go: () => { S.screen = "inv"; } }],
+    };
+    case "fly": {
+      const opts = flyOptions(S.city), cur = mapXY(S.city), s = opts[sel] || opts[0];
+      return {
+        back: () => { S.screen = "city"; }, noMenu: true,
+        html: `<div class="view" style="align-items:center;gap:6px"><div class="mapbox"><canvas id="map" width="180" height="85"></canvas>
+          <span class="here" style="left:${cur.x}px;top:${cur.y}px">★</span>
+          ${(() => { const texts = opts.map((id, i) => S.names ? CITIES[id].name : (i === sel ? "?" : "")), L = placeLabels(opts, texts.map(t => t || "?"));
+            return `<svg class="leaders" width="720" height="340">${L.map((l, i) => texts[i] ? `<line x1="${l.px}" y1="${l.py}" x2="${l.x + l.w / 2}" y2="${l.y + l.h / 2}" class="${i === sel ? "on" : ""}"/>` : "").join("")}</svg>` +
+              opts.map((id, i) => { const p = mapXY(id);
+                return (texts[i] ? `<span class="lbl ${i === sel ? "sel" : ""}" style="left:${L[i].x}px;top:${L[i].y}px">${texts[i]}</span>` : "") +
+                  `<button type="button" class="dot ${i === sel ? "sel" : ""}" data-i="${i}" style="left:${p.x}px;top:${p.y}px" aria-label="${S.names ? CITIES[id].name : "Destination " + (i + 1)}"></button>`; }).join(""); })()}
+          </div><div class="sub">★ You are in ${c.name}. ${S.names ? CITIES[s].name : "This city"}${s === S.cameFrom ? " (where you came from)" : ""} is a ${flightHours(S.city, s)} hour flight. Enter to fly.</div>`,
+        tail: `</div>`,
+        items: opts.map(id => ({ label: "", go: () => { S.flyTo = id; S.screen = "flying"; } })),
+        onShow: () => drawMap(document.getElementById("map")),
+      };
+    }
+    case "flying": {
+      const a = mapXY(S.city), b = mapXY(S.flyTo);
+      return {
+        noMenu: true,
+        html: `<div class="view" style="align-items:center;gap:6px"><div class="mapbox"><canvas id="map" width="180" height="85"></canvas>
+          <span class="here" style="left:${a.x}px;top:${a.y}px">★</span><span class="dot sel" style="left:${b.x}px;top:${b.y}px"></span>
+          <span class="jet" id="plane" style="left:${a.x}px;top:${a.y}px">✈</span></div>
+          <div class="sub">Flying from ${c.name} to ${S.names ? CITIES[S.flyTo].name : "the city you picked"}: ${flightHours(S.city, S.flyTo)} hours. Enter to skip.</div>`,
+        tail: `</div>`, items: [], onShow: () => { drawMap(document.getElementById("map")); startFlight(a, b); },
+      };
+    }
+    case "interpol": {
+      const m = S.computed ? SUSPECTS.filter(x => S.computed.includes(x.id)) : SUSPECTS;
+      return {
+        back: () => { S.screen = "city"; },
+        html: `<div class="interpol"><div class="view"><div class="place" style="font-size:22px">Interpol</div><div class="sub">Select a trait to change it.</div>`,
+        tail: `</div><div class="view">${S.warrant ? `<span class="stampbox">WARRANT: ${esc(SUSPECTS.find(s => s.id === S.warrant).name.toUpperCase())}</span>`
+                : `<div class="sub">${!S.computed ? "Enter traits, then Compute to search the files." : S.stale ? "Traits changed. Compute again to update." : m.length === 0 ? "No one matches. Check your traits." : `${m.length} suspects match. Narrow it to one for a warrant.`}</div>`}
+          <div class="names">${SUSPECTS.map(s => `<div class="${m.includes(s) ? "" : "out"}">${m.includes(s) ? "▸" : "·"} ${esc(s.name)}</div>`).join("")}</div></div></div>`,
+        items: Object.entries(TRAITS).map(([k, t]) => ({
+          label: t.label, k: S.interpol[k] || "?",
+          go: () => { const vals = [null, ...t.values]; S.interpol[k] = vals[(vals.indexOf(S.interpol[k]) + 1) % vals.length]; S.stale = !!S.computed; return "stay"; },
+        })).concat([{ label: "Compute", k: "1 hr", go: () => {
+          if (!advance(1)) return;
+          SFX.compute();
+          S.computed = matching().map(x => x.id); S.stale = false; updateWarrant();
+          flash = S.warrant ? "Computed. Warrant issued!" : `Computed. ${S.computed.length} suspect${S.computed.length === 1 ? "" : "s"} match.`;
+          return "stay"; } }]),
+      };
+    }
+    case "dossiers": {
+      const s = SUSPECTS[sel] || SUSPECTS[0];
+      return {
+        art: "dossier", noMenu: true, back: () => { if (S && S.thief) S.screen = "city"; else S = null; },
+        html: `<div class="view"><div class="sub">File ${sel + 1} of ${SUSPECTS.length} · ${GANG} agent</div><div class="place" style="font-size:24px">${esc(s.name)}</div>
+          <div class="paper dossier">${Object.entries(TRAITS).map(([k, t]) => `<div><span>${t.label}</span><b>${s[k]}</b></div>`).join("")}<p>${esc(s.bio)}</p></div>
+          <div class="pager"><button type="button" class="back" data-i="${(sel + SUSPECTS.length - 1) % SUSPECTS.length}">◂ Previous</button><button type="button" class="back" data-i="${(sel + 1) % SUSPECTS.length}">Next ▸</button></div>`,
+        tail: `</div>`,
+        items: SUSPECTS.map(() => ({ label: "", go: () => "stay" })),
+      };
+    }
+    case "hint": {
+      const H = S.hint;
+      if (H.done) return {
+        back: () => { S.screen = "city"; },
+        html: `<div class="view"><span class="stampbox" style="font-size:24px">HINT</span>${H.type === "slide" && H.next ? `<canvas class="art puzzle" id="hintpic" width="240" height="147"></canvas>` : ""}<div class="paper">${S.hints[S.city]}</div>`,
+        tail: `</div>`, onShow: () => { const cv = document.getElementById("hintpic"); if (cv) drawLandmark(cv, H.next); },
+        items: [{ label: "Back to the city", go: () => { S.screen = "city"; } }],
+      };
+      if (H.type === "slide") return {
+        back: () => { S.screen = "city"; }, noMenu: true,
+        html: `<div class="view" style="align-items:center"><div class="sub">Slide the tiles back into place to see where the thief went. Arrow keys move a tile into the gap.</div>
+          <div class="slide">${H.tiles.map((v, i) => `<button type="button" class="tile ${v === 8 ? "gap" : ""}" data-i="${i}">${v === 8 ? "" : `<canvas width="80" height="49" data-tile="${v}"></canvas>`}</button>`).join("")}</div>`,
+        tail: `</div>`, onShow: drawTiles,
+        items: H.tiles.map((_, i) => ({ label: "", go: () => { slideTile(i); return "stay"; } })),
+      };
+      if (H.type === "scramble") return {
+        back: () => { S.screen = "city"; }, noMenu: true,
+        html: `<div class="view" style="align-items:center"><div class="sub">Unscramble the name of the <b>${H.city ? "city" : "continent"}</b> the thief is heading to (${H.word.replace(/ /g, "").length} letters${H.word.includes(" ") ? ", two words" : ""}).</div>
+          <div class="namebox">${[...H.word].map((ch, i) => ch === " " ? "&nbsp;&nbsp;" : (H.typed[i] || "_")).join(" ")}</div>
+          <div class="keys">${H.letters.map((ch, i) => `<button type="button" class="key ${i === sel ? "sel" : ""}" data-i="${i}" ${H.used[i] ? "disabled" : ""}>${ch}</button>`).join("")}<button type="button" class="key wide ${sel === H.letters.length ? "sel" : ""}" data-i="${H.letters.length}">UNDO</button></div>`,
+        tail: `</div>`,
+        items: H.letters.map((ch, i) => ({ label: "", go: () => { pickLetter(i); return H.done ? undefined : "stay"; } }))
+          .concat([{ label: "", go: () => { undoLetter(); return "stay"; } }]),
+      };
+      const q = TRIVIA[H.q];
+      return {
+        back: () => { S.screen = "city"; },
+        html: `<div class="view"><span class="stampbox" style="font-size:24px">RIDDLE</span><div class="paper">Answer right and the hint is yours. You get one try.<br><br><b>${esc(q.q)}</b></div>`,
+        tail: `</div>`,
+        items: H.order.map(oi => ({ label: q.opts[oi], go: () => { finishHint(oi === q.a); } })),
+      };
+    }
+    case "notes": return {
+      back: () => { S.screen = "city"; },
+      html: `<div class="view" style="min-height:0;height:100%"><div class="place" style="font-size:22px">Case notes</div><div class="notes" id="notes">${S.notes.length
+        ? S.notes.map(n => `<p><span class="city">${esc(n.city)}, ${esc(n.place)}:</span> ${esc(n.text)}</p>`).join("")
+        : `<p>No clues yet. Investigate to talk to witnesses.</p>`}</div>`,
+      tail: `</div>`,
+      items: [{ label: "Back to the city", go: () => { S.screen = "city"; } }],
+    };
+    case "chase": return {
+      noMenu: true, html: `<canvas class="street" id="street" width="384" height="188"></canvas>`, items: [{ label: "", go: finishChase }], onShow: startChase,
+    };
+    case "end": {
+      const t = thief(), item = esc(CITIES[S.route[0]].item), Item = item[0].toUpperCase() + item.slice(1);
+      const msg = {
+        win: [S.boss ? `HALL OF FAME` : `ARRESTED`, S.boss ? `The hat comes off. It's Cameron SanFrancisco! You caught the leader of ${GANG} Your name goes into the Hall of Fame!` : `The hat comes off. It's ${t.name}, and your warrant names ${t.sex === "Female" ? "her" : "him"}. Off to jail! ${Item} is going home.`],
+        wrong: [`WRONG WARRANT`, `The hat comes off. It's ${t.name}, but your warrant names someone else. ${pron()} walks away.`],
+        nowarrant: [`NO WARRANT`, `The hat comes off. It's ${t.name}, but you have no warrant. ${pron()} walks away.`],
+        time: [`OUT OF TIME`, `It's next Wednesday at 5 PM. ${t.name} got away with ${item}.`],
+      }[S.result];
+      return {
+        art: "thief", onShow: !S.jingled ? () => { S.jingled = true; S.result === "win" ? SFX.victory() : SFX.sad(); } : null,
+        html: `<div class="view"><span class="stampbox" style="font-size:24px">${msg[0]}</span><div class="paper">${msg[1]}</div>
+          ${S.examDue ? `<div class="sub ok">You've earned a shot at promotion to ${RANKS[rankIdx() + 1].name}. Pass the exam to rank up!</div>` : ""}
+          ${S.examDue ? "" : `<div class="sub">The trail: ${S.route.map(r => CITIES[r].name).join(" → ")}.</div>`}`,
+        tail: `</div>`,
+        items: (S.examDue ? [{ label: "Take the promotion exam", go: startExam }] : [])
+          .concat([{ label: "Start a new case", go: () => { newCase(); } }, { label: "Title screen", go: () => { S = null; } }]),
+      };
+    }
+    case "exam": {
+      const E = S.exam, q = TRIVIA[E.qs[E.i]], next = RANKS[rankIdx() + 1];
+      if (E.done) return {
+        html: `<div class="view"><span class="stampbox" style="font-size:24px">${E.passed ? "PROMOTED" : "NOT YET"}</span><div class="paper">${E.passed
+          ? `Congratulations, ${RANKS[rankIdx()].name}! Your chases will be longer and your clues harder from now on.`
+          : `You got ${E.right} of ${E.qs.length} right. Solve another case to retake the exam for ${next.name}.`}</div>`,
+        tail: `</div>`,
+        items: [{ label: "Start a new case", go: () => { newCase(); } }, { label: "Title screen", go: () => { S = null; } }],
+      };
+      return {
+        html: `<div class="view"><div class="sub">Promotion exam for ${next.name} · Question ${E.i + 1} of ${E.qs.length}</div><div class="paper">${esc(q.q)}</div>
+          ${E.answered != null ? `<div class="sub ${E.answered === q.a ? "ok" : ""}">${E.answered === q.a ? "Correct!" : `Not quite. The answer is ${esc(q.opts[q.a])}.`}</div>` : ""}`,
+        tail: `</div>`,
+        items: E.answered != null
+          ? [{ label: E.i + 1 < E.qs.length ? "Next question" : "See your result", go: () => {
+              E.i++; E.answered = null; E.order = shuffle([0, 1, 2, 3]);
+              if (E.i >= E.qs.length) { E.done = true; E.passed = E.right === E.qs.length; if (E.passed) { P.rank = rankIdx() + 1; saveProfile(); SFX.victory(); } else SFX.sad(); }
+            } }]
+          : E.order.map(oi => ({ label: q.opts[oi], go: () => { E.answered = oi; if (oi === q.a) { E.right++; SFX.compute(); } else SFX.sad(); } })),
+      };
+    }
+  }
+}
+
+/* Hints: after visiting all three places in a city, solve a puzzle (2 hours) to learn about the thief's next stop.
+   The puzzle rotates between a slide puzzle, a word scramble and a geography riddle. */
+const HINT_H = 2;
+const CONTINENT = { paris: "EUROPE", tokyo: "ASIA", cairo: "AFRICA", rio: "SOUTH AMERICA", mumbai: "ASIA", sydney: "AUSTRALIA",
+  reykjavik: "EUROPE", mexico: "NORTH AMERICA", istanbul: "EUROPE", nairobi: "AFRICA", london: "EUROPE", newyork: "NORTH AMERICA",
+  beijing: "ASIA", buenosaires: "SOUTH AMERICA", rome: "EUROPE", bangkok: "ASIA" };
+function nextStop() { const i = S.route.indexOf(S.city); return i >= 0 && i < S.route.length - 1 ? S.route[i + 1] : null; }
+function hintText(type) {
+  const i = S.route.indexOf(S.city), next = nextStop();
+  if (i === -1) return `The trail went cold. The thief never came to ${CITIES[S.city].name}. Head back to where you last had a lead.`;
+  if (!next) return `The thief hasn't left! ${pron()} is hiding somewhere in ${CITIES[S.city].name}.`;
+  const A = CITIES[S.city], B = CITIES[next];
+  let dl = B.lon - A.lon; if (dl > 180) dl -= 360; if (dl < -180) dl += 360;
+  const ew = dl > 0 ? "east" : "west", ns = B.lat - A.lat > 15 ? "north" : B.lat - A.lat < -15 ? "south" : "";
+  if (type === "slide") return `The thief's next stop has this landmark.`;
+  if (type === "scramble") return S.hint && S.hint.city ? `The thief is headed to ${B.name}!` : `The thief is headed somewhere in ${CONTINENT[next]}.`;
+  return `The thief flew ${ns ? ns + " and " : ""}${ew}, to a city in ${CONTINENT[next]}.`;
+}
+function startHint() {
+  S.hints ||= {};
+  if (S.hints[S.city]) { S.hint = { done: true, type: S.hintType?.[S.city], next: nextStop() }; S.screen = "hint"; return; }
+  const v = S.visited[S.city] || [];
+  if (!v.every(Boolean) || v.length < 3) { flash = "Visit all three places here first."; return "stay"; }
+  const types = ["slide", "scramble", "riddle"], type = types[(S.hintN = (S.hintN || 0) + 1) % 3];
+  const next = nextStop();
+  const H = S.hint = { type: type === "slide" && !next ? "riddle" : type, next, done: false };
+  if (H.type === "slide") {
+    H.tiles = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    for (let k = 0, last = -1; k < 60; k++) { const gap = H.tiles.indexOf(8), nb = neighbors(gap).filter(n => n !== last); const n = pick(nb); last = gap; [H.tiles[gap], H.tiles[n]] = [H.tiles[n], H.tiles[gap]]; }
+    if (H.tiles.every((v, i) => v === i)) [H.tiles[0], H.tiles[1]] = [H.tiles[1], H.tiles[0]];
+  } else if (H.type === "scramble") {
+    H.city = !!next && rankIdx() < 2; H.word = H.city ? CITIES[next].name.toUpperCase().replace(/[^A-Z ]/g, "") : CONTINENT[next || S.city]; H.letters = shuffle([...H.word.replace(/ /g, "")]); H.used = H.letters.map(() => false); H.typed = []; H.picks = [];
+  } else { H.q = rint(0, TRIVIA.length - 1); H.order = shuffle([0, 1, 2, 3]); }
+  S.screen = "hint";
+}
+const neighbors = i => [i - 3, i + 3, i % 3 ? i - 1 : -1, i % 3 < 2 ? i + 1 : -1].filter(n => n >= 0 && n < 9);
+function slideTile(i) {
+  const H = S.hint, gap = H.tiles.indexOf(8);
+  if (!neighbors(gap).includes(i)) return;
+  [H.tiles[gap], H.tiles[i]] = [H.tiles[i], H.tiles[gap]]; SFX.step(true);
+  if (H.tiles.every((v, k) => v === k)) finishHint(true);
+}
+function slideKey(key) {   // arrow moves the tile on that side of the gap into the gap
+  const gap = S.hint.tiles.indexOf(8), d = { ArrowLeft: 1, ArrowRight: -1, ArrowUp: 3, ArrowDown: -3 }[key], from = gap + d;
+  if ((d === 1 && gap % 3 === 2) || (d === -1 && gap % 3 === 0) || from < 0 || from > 8) return;
+  slideTile(from);
+}
+function drawTiles() {
+  const src = document.createElement("canvas"); src.width = 240; src.height = 147; drawLandmark(src, S.hint.next);
+  document.querySelectorAll("[data-tile]").forEach(cv => { const v = +cv.dataset.tile, g = cv.getContext("2d");
+    g.drawImage(src, (v % 3) * 80, Math.floor(v / 3) * 49, 80, 49, 0, 0, 80, 49); });
+}
+function pickLetter(i) {
+  const H = S.hint; if (H.used[i]) return;
+  let pos = H.typed.length; while (H.word[pos] === " ") H.typed[pos++] = " ";
+  H.typed[pos] = H.letters[i]; H.used[i] = true; H.picks.push(i); SFX.click();
+  const filled = H.typed.join("");
+  if (filled.length === H.word.length) { if (filled === H.word) finishHint(true); else { SFX.sad(); flash = "Not quite. Try again!"; H.typed = []; H.picks = []; H.used = H.used.map(() => false); } }
+}
+function undoLetter() { const H = S.hint, i = H.picks.pop(); if (i == null) return; H.used[i] = false; H.typed.pop(); while (H.typed[H.typed.length - 1] === " ") H.typed.pop(); }
+function finishHint(ok) {
+  const H = S.hint;
+  if (!advance(HINT_H)) return;
+  H.done = true; sel = 0;
+  (S.hintType ||= {})[S.city] = H.type;
+  if (ok) { SFX.compute(); S.hints[S.city] = hintText(H.type); S.notes.push({ city: CITIES[S.city].name, place: "Hint", text: S.hints[S.city] }); }
+  else { SFX.sad(); S.hints[S.city] = null; flash = "Wrong answer, so no hint this time."; S.screen = "city"; }
+}
+
+/* On-screen keyboard for signing in with handheld buttons. */
+const KEYS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", " ", "DEL", "OK"];
+function typeKey(k) {
+  if (k === "DEL") nameBuf = nameBuf.slice(0, -1);
+  else if (k === "OK") { if (nameBuf.trim()) { signIn(nameBuf); return "in"; } }
+  else if (nameBuf.length < 14) nameBuf += nameBuf.length && nameBuf[nameBuf.length - 1] !== " " ? k.toLowerCase() : k;
+}
+
+/* Promotion exam: 1 question for Sleuth, 2 for Private Eye, 3 for Investigator, 4 for Ace Detective. */
+function startExam() {
+  const n = rankIdx() + 1;
+  S.examDue = false;
+  S.exam = { qs: shuffle([...TRIVIA.keys()]).slice(0, n), i: 0, right: 0, answered: null, done: false, order: shuffle([0, 1, 2, 3]) };
+  S.screen = "exam";
+}
+
+let current = null, anim = null;
+function stopAnim() { if (anim) { cancelAnimationFrame(anim.raf); clearInterval(anim.iv); clearTimeout(anim.to); anim = null; } document.querySelectorAll(".fx,.boom").forEach(e => e.remove()); }
+
+function render() {
+  stopAnim();
+  const d = screenDef(); current = d;
+  if (sel >= d.items.length) sel = Math.max(0, d.items.length - 1);
+  const c = S && CITIES[S.city];
+  const bar = !S || !S.thief
+    ? `<div class="bar"><span class="brand">${AGENCY}</span><span class="clock">${P ? `${esc(P.name)} · ${rankOf().name}` : "Sign in"}</span></div>`
+    : `<div class="bar"><span class="brand">${esc(S.rank.toUpperCase())} · ${c.name.toUpperCase()}</span><span class="clock">${fmtTime(S.time)} · <b>due next Wed 5 PM</b></span></div>`;
+  let left = "", cls = "";
+  if (d.art === "city") { cls = "art-city"; left = `<div class="view"><canvas class="art" id="art" width="240" height="147"></canvas><div class="place">${c.name}</div></div>`; }
+  if (d.art) if (d.art !== "city") { cls = "art-face"; left = `<div class="view"><canvas class="face" id="face" width="96" height="96"></canvas></div>`; }
+  const msg = flash ? `<div class="sub ok">${flash}</div>` : ""; flash = "";
+  document.getElementById("stage").innerHTML = bar +
+    `<div class="body ${cls}${d.black ? " black" : ""}">${left}${d.html}${d.noMenu ? "" : menuHTML(d.items)}${msg}${d.tail || ""}</div>` +
+    `<div class="foot"><span>${S && S.screen === "fly" ? "↑↓ pick a city · Enter fly" : S && S.screen === "dossiers" ? "←→ flip through the files" : "↑↓ choose · Enter select"}${d.back ? " · Esc back" : ""}</span><span class="foot-r">${canHome() ? `<button type="button" class="back" id="homebtn">⌂ Home (H)</button>` : ""}<button type="button" class="back" id="mutebtn">${P && P.mute ? "Sound off" : "Sound on"} (M)</button>${d.back ? `<button type="button" class="back" id="backbtn">◂ Back</button>` : ""}</span></div>`;
+  if (d.art === "city") drawLandmark(document.getElementById("art"), S.city);
+  if (d.art === "witness") talkingFace(document.getElementById("face"), witnessPerson(S.witness.seed, S.city, S.witness.ptype));
+  if (d.art === "thief") { const fc = document.getElementById("face"); drawFace(fc, facePerson(thief()));
+    if (S.result === "win") drawBars(fc); }
+  if (d.art === "dossier") drawFace(document.getElementById("face"), facePerson(SUSPECTS[sel] || SUSPECTS[0]));
+  document.querySelectorAll("[data-bldg]").forEach(cv => drawBuilding(cv, cv.dataset.bldg));
+  if (d.onShow) d.onShow();
+}
+
+function witnessPerson(seed, cityId, job) {
+  const r = seeded(seed), reg = REGIONS[REGION_OF[cityId]];
+  const age = ["young", "adult", "adult", "adult", "old"][Math.floor(r() * 5)];
+  return { seed, sex: r() < 0.5 ? "Female" : "Male", hair: reg.hair[Math.floor(r() * reg.hair.length)],
+    skin: SKIN[reg.skin[Math.floor(r() * reg.skin.length)]], age, job, feature: null, style: "witness" };
+}
+function talkingFace(cv, person) {
+  const t0 = performance.now(), reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  drawFace(cv, person);
+  if (reduce) return;
+  anim = { iv: setInterval(() => {
+    const t = performance.now() - t0;
+    drawFace(cv, person, { talk: t < 2600 && Math.floor(t / 140) % 2 === 0, blink: t % 3200 > 3050 });
+  }, 70) };
+}
+
+function choose(i) {
+  const it = current.items[i]; if (!it) return;
+  SFX.click();
+  const r = it.go();
+  sel = r === "stay" ? i : 0;
+  render();
+}
+/* Home: save the case in progress (if any) and return to the title screen. */
+const canHome = () => P && S && S.screen !== "exam";
+function goHome() {
+  if (!canHome()) return;
+  if (S.thief && !S.result) { P.save = JSON.parse(JSON.stringify(S)); saveProfile(); flash = `Game saved for ${esc(P.name)}.`; }
+  stopAnim(); S = null; ui = null; sel = 0;
+}
+function goBack() { if (current.back) { current.back(); sel = 0; render(); } }
+
+document.getElementById("stage").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "backbtn") return goBack();
+  if (b.id === "homebtn") { goHome(); render(); return; }
+  if (b.id === "mutebtn" && P) { SFX.muted = P.mute = !P.mute; saveProfile(); render(); return; }
+  if (b.dataset.i != null) { if (S && S.screen === "dossiers") { sel = +b.dataset.i; render(); } else choose(+b.dataset.i); }
+});
+document.addEventListener("keydown", e => {
+  if (!current) return;
+  const n = current.items.length, scr = S ? S.screen : ui;
+  if (scr === "name") {
+    if (/^[a-zA-Z ]$/.test(e.key)) { e.preventDefault(); typeKey(e.key === " " ? " " : e.key.toUpperCase()); render(); return; }
+    if (e.key === "Backspace") { e.preventDefault(); typeKey("DEL"); render(); return; }
+    if (e.key === "Enter" && nameBuf && sel < 26) { e.preventDefault(); if (typeKey("OK")) sel = 0; render(); return; }
+    const mv = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+    if (mv) { e.preventDefault(); sel = Math.max(0, Math.min(KEYS.length - 1, sel + mv)); render(); return; }
+  }
+  if (scr === "hint" && S.hint.type === "slide" && !S.hint.done && /^Arrow/.test(e.key)) { e.preventDefault(); slideKey(e.key); render(); return; }
+  const notes = document.getElementById("notes");
+  if (scr === "flying" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); land(); return; }
+  if (scr === "chase" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); finishChase(); return; }
+  if (scr === "walk" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); finishWalk(); return; }
+  if (scr === "danger" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); endDanger(); return; }
+  if ((e.key === "h" || e.key === "H") && canHome()) { goHome(); render(); return; }
+  if ((e.key === "m" || e.key === "M") && P) { SFX.muted = P.mute = !P.mute; saveProfile(); render(); return; }
+  if (notes && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); notes.scrollTop += e.key === "ArrowDown" ? 60 : -60; return; }
+  const side = scr === "fly" || scr === "inv" || scr === "dossiers" || (scr === "hint" && S.hint.type === "scramble" && !S.hint.done);
+  const down = e.key === "ArrowDown" || (side && e.key === "ArrowRight");
+  const up = e.key === "ArrowUp" || (side && e.key === "ArrowLeft");
+  if (down) { e.preventDefault(); sel = (sel + 1) % Math.max(n, 1); render(); }
+  else if (up) { e.preventDefault(); sel = (sel - 1 + n) % Math.max(n, 1); render(); }
+  else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(sel); }
+  else if (e.key === "Escape" || e.key === "Backspace") { e.preventDefault(); goBack(); }
+});
+
+/* ---------- flights: no red-eyes, so a flight that would land after bedtime waits for 9 AM ---------- */
+function startFlight(a, b) {
+  SFX.fly(2.3);
+  const plane = document.getElementById("plane"), t0 = performance.now(), dur = 2200;
+  const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+  plane.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = k * k * (3 - 2 * k);
+    plane.style.left = a.x + (b.x - a.x) * e + "px"; plane.style.top = a.y + (b.y - a.y) * e - Math.sin(k * Math.PI) * 30 + "px";
+    if (k < 1) anim.raf = requestAnimationFrame(step); else land();
+  };
+  anim = { raf: requestAnimationFrame(step) };
+}
+function land() {
+  if (!S || S.screen !== "flying") return;
+  const hrs = flightHours(S.city, S.flyTo), day = Math.floor(S.time / 24);
+  S.waited = false;
+  if (S.time + hrs > day * 24 + S.bedtimes[day]) { S.time = (day + 1) * 24 + 9; S.waited = true; }
+  S.cameFrom = S.city; S.city = S.flyTo; S.flyTo = null;
+  S.places[S.city] = rollPlaces(S.city); S.visited[S.city] = [false, false, false];
+  const ok = advance(hrs);
+  if (S.waited) S.slept = false;
+  if (ok) { S.screen = "city"; S.henchman = S.route.indexOf(S.city) > 0; }
+  sel = 0; render();
+}
+
+/* ---------- overlay animations: henchman, knife, gunshot ---------- */
+/* A pixel revolver pointing left, muzzle at (x, y); kick tilts it up (radians) for the recoil. */
+function drawGun(g, x, y, kick) {
+  g.save(); g.translate(x + 100, y + 30); g.rotate(kick); g.translate(-x - 100, -y - 30);
+  const { R } = kit(g), o = (dx, dy, w, h, c) => R(x + dx, y + dy, w, h, c);
+  o(-2, -6, 60, 12, INK); o(0, -4, 56, 8, "#5a5e6e"); o(0, -4, 56, 2, "#9aa0b4");   // barrel
+  o(2, -10, 6, 4, INK);                                                            // front sight
+  o(54, -14, 30, 30, INK); o(56, -12, 26, 26, "#6a6e80"); o(56, -12, 26, 3, "#a8aec2");
+  for (const yy of [-4, 4]) o(56, yy, 26, 2, "#4a4e5e");                           // cylinder grooves
+  o(82, -12, 22, 30, INK); o(84, -10, 18, 26, "#5a5e6e");                          // frame
+  o(96, -20, 10, 10, INK); o(98, -18, 6, 8, "#4a4e5e");                            // hammer
+  o(62, 16, 22, 14, INK); o(66, 16, 14, 10, "#000");  o(72, 14, 4, 10, "#4a4e5e"); // trigger guard + trigger
+  g.fillStyle = INK; g.beginPath(); g.moveTo(x + 86, y + 14); g.lineTo(x + 110, y + 12); g.lineTo(x + 128, y + 62); g.lineTo(x + 98, y + 66); g.closePath(); g.fill();
+  g.fillStyle = "#7a4a26"; g.beginPath(); g.moveTo(x + 89, y + 17); g.lineTo(x + 107, y + 15); g.lineTo(x + 123, y + 59); g.lineTo(x + 100, y + 62); g.closePath(); g.fill();
+  g.fillStyle = "#9a6232"; for (let k = 0; k < 4; k++) R(x + 98 + k * 4, y + 28 + k * 8, 6, 2, "#9a6232");     // wood grain
+  g.restore();
+}
+function playFx(kind, done) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches && kind === "henchman") return;
+  const stage = document.getElementById("stage");
+  const cv = document.createElement("canvas"); cv.className = "fx"; cv.width = 400; cv.height = 240; stage.appendChild(cv);
+  const g = cv.getContext("2d"), { R } = kit(g), t0 = performance.now();
+  const boom = (txt, x, y, small) => { const b = document.createElement("div"); b.className = "boom" + (small ? " small" : ""); b.innerHTML = txt; b.style.left = x + "px"; b.style.top = y + "px"; stage.appendChild(b); };
+  const style = pick(["peek", "scoot", "tiptoe"]);
+  let said = false;
+  if (kind === "henchman") SFX.henchman(); else if (kind === "knife") SFX.knife();
+  const step = now => {
+    const t = now - t0; let going = true;
+    if (kind === "henchman") {
+      going = henchmanScene(g, t, style);
+      if (!said && t > 700) { said = true; boom(`${GANG} HENCHMAN<br>SPOTTED!`, 24, 380, true); }
+    } else {
+      g.clearRect(0, 0, 400, 240); going = t < 2200;
+      if (kind === "knife") {
+        const x = Math.max(120, 400 - t / 1.1), wob = x === 120 ? Math.round(Math.sin(t / 30) * 2 * Math.max(0, 1 - (t - 300) / 600)) : 0;
+        R(x, 92 + wob, 20, 4, "#c0c8d8"); R(x, 92 + wob, 20, 1, "#ffffff"); R(x + 20, 89 + wob, 3, 10, INK); R(x + 23, 92 + wob, 14, 4, "#6b4226"); R(x + 23, 93 + wob, 14, 1, "#8a5a32");
+        if (x === 120 && !said) { said = true; boom("THUNK!", 150, 130); }
+      } else {
+        // The gun creeps in from the right, pauses, fires, and kicks back with the recoil.
+        const FIRE = 1700, creep = Math.min(1, t / 1500), ease = 1 - Math.pow(1 - creep, 2);
+        const since = t - FIRE, kick = since < 0 ? 0 : since < 90 ? since / 90 : Math.max(0, 1 - (since - 90) / 450);
+        const x = Math.round(410 - ease * 170 + kick * 22), y = 110 + Math.round(Math.sin(t / 260) * (since < 0 ? 2 : 0));
+        drawGun(g, x, y, kick * 0.35);
+        if (since >= 0 && since < 110) {     // muzzle flash
+          const mx = x - 6, my = y - Math.round(Math.sin(kick) * 100);
+          g.fillStyle = "#fff6c8"; g.beginPath(); for (let k = 0; k < 16; k++) { const r = k % 2 ? 10 : 26, a = k / 16 * Math.PI * 2; g.lineTo(mx + Math.cos(a) * r, my + Math.sin(a) * r); } g.fill();
+          g.fillStyle = "#f7d046"; g.beginPath(); g.arc(mx, my, 9, 0, 7); g.fill();
+        }
+        if (since > 60) for (let k = 0; k < 4; k++) {   // smoke puffs drifting up
+          const u = (since - 60) / 1000, r = 4 + u * 10 + k * 2;
+          g.fillStyle = `rgba(200,200,210,${Math.max(0, 0.55 - u * 0.5 - k * 0.08)})`;
+          g.beginPath(); g.arc(x - 10 - k * 9 - u * 20, y - 6 - u * 40 - k * 6, r, 0, 7); g.fill();
+        }
+        if (!said && since >= 0) { said = true; SFX.gun(); boom("BANG! A shot just missed you!", 40, 60); }
+        going = t < 3300;
+      }
+    }
+    if (going) anim.raf = requestAnimationFrame(step);
+    else if (kind === "henchman") { cv.remove(); document.querySelectorAll(".boom").forEach(e => e.remove()); }
+    else if (done) anim.to = setTimeout(done, 500);
+  };
+  anim = anim || {};
+  anim.raf = requestAnimationFrame(step);
+}
+
+/* ---------- the chase: suspect in a trench coat, detective in pursuit, hat comes off ---------- */
+function startChase() {
+  const cv = document.getElementById("street"), g = cv.getContext("2d"), t0 = performance.now();
+  const th = thief(), sd = hash(S.city), FEET = 146, right = S.warrant === S.thief;
+  const fc = document.createElement("canvas"); fc.width = fc.height = 96; const who = facePerson(th);
+  const RUN = 3000, HOLD = 1300, LIFT = 800, SHOW = right ? 2200 : 1300, BACK = 4200;
+  const T2 = RUN, T3 = T2 + HOLD + LIFT + SHOW, TEND = right ? T3 : T3 + BACK;
+  const stage = document.getElementById("stage"), b = document.createElement("div");
+  b.className = "boom"; b.style.left = "40px"; b.style.top = "70px"; b.style.fontSize = "28px"; stage.appendChild(b);
+  const say = txt => { if (b.textContent !== txt) b.textContent = txt; };
+  let lastStep = -1, popped = false, scored = false;
+  g.imageSmoothingEnabled = false;
+  const step = now => {
+    const t = now - t0;
+    if (t < T2) {                       // 1. both run all the way across the street
+      say("There goes the suspect!");
+      drawStreet(g, sd);
+      const k = t / RUN, f = Math.floor(t / 90);
+      drawSuspect(g, Math.round(-30 + k * 470), FEET, f, { hat: true, hair: HAIR[th.hair], skin: th.skin, run: true, red: th.id === "cameron" });
+      drawDetective(g, Math.round(-110 + k * 480), FEET, f, { run: true });
+      const st = Math.floor(t / 150); if (st !== lastStep) { lastStep = st; SFX.step(); }
+    } else if (t < T3) {                // 2. close-up: just the hat on black, then it comes off
+      const u = t - T2, lift = Math.max(0, Math.min(1, (u - HOLD) / LIFT));
+      say(lift < 1 ? "Gotcha! Off comes the hat..." : right ? `It's ${th.name}! Your warrant is good!` : S.warrant ? `It's ${th.name}... wrong warrant!` : `It's ${th.name}... but no warrant!`);
+      if (lift > 0 && !popped) { popped = true; SFX.pop(); }
+      if (lift >= 1 && !scored) { scored = true; if (right) SFX.gotcha(); else { S.jingled = true; SFX.sad(); } }
+      drawFace(fc, who, { mystery: true, hatLift: lift });
+      g.fillStyle = "#000"; g.fillRect(0, 0, 384, 188); g.drawImage(fc, 98, 0, 188, 188);
+    } else {                            // 3. wrong: the detective shuffles back across, slumped
+      const u = t - T3, k = Math.min(1, u / BACK);
+      if (!S.sadWalked) { S.sadWalked = true; SFX.sadWalk(); }
+      say(`${th.name} walks away...`);
+      drawStreet(g, sd);
+      drawDetective(g, Math.round(420 - k * 480), FEET, Math.floor(u / 220), { slump: true, flip: true });
+      const st = Math.floor(u / 440); if (st !== lastStep) { lastStep = st; SFX.step(true); }
+    }
+    if (t < TEND) anim.raf = requestAnimationFrame(step); else finishChase();
+  };
+  anim = { raf: requestAnimationFrame(step) };
+}
+function startWalk() {
+  const cv = document.getElementById("street"), g = cv.getContext("2d"), t0 = performance.now();
+  const bg = document.createElement("canvas"); bg.width = 384; bg.height = 188;
+  const path = drawApproach(bg, S.places[S.city][S.walkTo]), pts = path.pts;
+  const man = document.createElement("canvas"); man.width = 64; man.height = 72; const mg = man.getContext("2d");
+  // Distance along the path, so he walks at a steady pace.
+  const segs = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])), total = segs.reduce((a, b) => a + b, 0) || 1;
+  const WALK = 2200;
+  g.imageSmoothingEnabled = false;
+  let lastStep = -1;
+  const step = now => {
+    const t = now - t0, done = t >= WALK;
+    let d = Math.min(1, t / WALK) * total, i = 0;
+    while (i < segs.length - 1 && d > segs[i]) d -= segs[i++];
+    const k = segs[i] ? Math.min(1, d / segs[i]) : 1, A = pts[i], B = pts[i + 1] || A;
+    const x = A[0] + (B[0] - A[0]) * k, y = A[1] + (B[1] - A[1]) * k, sc = A[2] + (B[2] - A[2]) * k;
+    g.drawImage(bg, 0, 0);
+    mg.clearRect(0, 0, 64, 72); drawDetective(mg, 32, 68, done ? 0 : Math.floor(t / 110), { flip: B[0] < A[0] });
+    g.drawImage(man, Math.round(x - 32 * sc), Math.round(y - 68 * sc), Math.round(64 * sc), Math.round(72 * sc));
+    if (path.front) path.front(g);
+    const st = Math.floor(t / 260); if (!done && st !== lastStep) { lastStep = st; SFX.step(true); }
+    if (t < WALK + 400) anim.raf = requestAnimationFrame(step); else finishWalk();
+  };
+  anim = { raf: requestAnimationFrame(step) };
+}
+function endDanger() { if (S && S.screen === "danger") { S.screen = "witness"; sel = 0; render(); } }
+function finishWalk() { if (S && S.screen === "walk") { stopAnim(); investigate(S.walkTo); sel = 0; render(); } }
+
+function finishChase() { if (S && S.screen === "chase") { end("caught"); sel = 0; render(); } }
+
+/* Jail bars over the portrait, and a little victory tune. */
+function drawBars(cv) {
+  const { R } = kit(cv.getContext("2d"));
+  R(0, 0, 96, 5, "#4a4a5a"); R(0, 45, 96, 5, "#4a4a5a"); R(0, 91, 96, 5, "#4a4a5a"); R(0, 46, 96, 1, "#9a9aaa");
+  for (let x = 3; x < 96; x += 13) { R(x, 0, 5, 96, "#6a6a7a"); R(x + 1, 0, 1, 96, "#c8c8d8"); R(x + 4, 0, 1, 96, "#3a3a4a"); }
+}
+/* Fit the 800x480 screen to the available width. */
+function fit() {
+  const w = document.getElementById("wrap").clientWidth;
+  document.getElementById("stage").style.transform = `scale(${Math.min(1, w / 800)})`;
+}
+new ResizeObserver(fit).observe(document.getElementById("wrap"));
+
+window.claude?.hot?.snapshot?.(() => ({ S, sel, P, ui }));
+function start(data) {
+  if (data && data.P) { P = data.P; ui = data.ui ?? null; }
+  S = P && data && data.S && (data.S.clues || data.S.screen === "dossiers") ? data.S : null;
+  if (S && ["flying", "chase", "walk"].includes(S.screen)) S.screen = S.screen === "flying" ? "fly" : "inv";
+  sel = (S && data.sel) || 0;
+  fit(); render();
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
