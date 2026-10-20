@@ -852,13 +852,15 @@ function screenDef() {
       }[S.result];
       return {
         art: "thief", onShow: !S.jingled ? () => { S.jingled = true; S.result === "win" ? SFX.victory() : SFX.sad();
-          if (S.bellaEscapes) { const me = S; setTimeout(() => { if (S !== me) return; me.escaped = true; if (S.screen === "end") { SFX.pop(); render(); } }, 15600); } } : null,
+          if (S.bellaEscapes) { const me = S; setTimeout(() => { if (S !== me || me.escaped) return; me.escaped = true; if (S.screen === "end") { SFX.pop(); render(); } }, 15600); } } : null,
         html: `<div class="view"><span class="stampbox" style="font-size:24px">${msg[0]}</span><div class="paper">${msg[1]}</div>
           ${S.examDue ? `<div class="sub ok">You've earned a shot at promotion to ${RANKS[rankIdx() + 1].name}. Pass the exam to rank up!</div>` : ""}
           ${S.examDue ? "" : `<div class="sub">The trail: ${S.route.map(r => CITIES[r].name).join(" → ")}.</div>`}`,
         tail: `</div>`,
-        items: (S.examDue ? [{ label: "Take the promotion exam", go: startExam }] : [])
-          .concat([{ label: "Start a new case", go: () => { newCase(); } }, { label: "Title screen", go: () => { S = null; } }]),
+        // If you move on before the jail music ends, Bella's escape shows first so it can't be missed.
+        items: ((S.examDue ? [{ label: "Take the promotion exam", go: startExam }] : [])
+          .concat([{ label: "Start a new case", go: () => { newCase(); } }, { label: "Title screen", go: () => { S = null; } }]))
+          .map(it => ({ ...it, go: () => bellaPending() ? (bellaBreakout(), "stay") : it.go() })),
       };
     }
     case "exam": {
@@ -1081,8 +1083,11 @@ function choose(i) {
 }
 /* Home: save the case in progress (if any) and return to the title screen. */
 const canHome = () => P && S && S.screen !== "exam";
+const bellaPending = () => S && S.screen === "end" && S.bellaEscapes && !S.escaped;
+function bellaBreakout() { S.escaped = true; SFX.pop(); }
 function goHome() {
   if (!canHome()) return;
+  if (bellaPending()) { bellaBreakout(); return; }
   if (S.thief && !S.result) { P.save = JSON.parse(JSON.stringify(S)); saveProfile(); flash = `Game saved for ${esc(P.name)}.`; }
   stopAnim(); S = null; ui = null; sel = 0;
 }
